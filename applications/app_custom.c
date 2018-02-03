@@ -243,7 +243,6 @@ static THD_FUNCTION(myudp_thread, arg) {
 	uint8_t  destip[4];
 	uint16_t destport;
 	uint8_t* bufRev;
-	uint16_t DATA_BUF_SIZE = 32;
 
 	uint8_t  remoteip[4] = {192, 168, 1, 4}; // xpc target ip
 	uint16_t remoteport = 8001;
@@ -283,8 +282,10 @@ static THD_FUNCTION(myudp_thread, arg) {
 			//if(size > DATA_BUF_SIZE) size = DATA_BUF_SIZE;
 			ret = recvfrom(SOCK_UDPS, spiRxBuf, spiBufSiz, destip, (uint16_t*)&destport);
 			if(ret <= 0)
-			{ // error
-
+			{ // error in receiving
+				// NEEDS TO BE tested, not sure
+				spiTxBuf[12] = 111;  // error code
+				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
 			}
 			else
 			{
