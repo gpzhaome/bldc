@@ -44,6 +44,9 @@
 #include "./ioLibrary/Ethernet/wizchip_conf.h"
 #include "./ioLibrary/Ethernet/socket.h"
 
+// add the easyCAT library
+#include "./easycat.h"
+
 
 // udp thread
 static THD_WORKING_AREA(myudp_thread_wa, 2048); // 2kb stack for this thread
@@ -82,14 +85,342 @@ static uint8_t spiTxBuf[32];
 static uint8_t spiRxBuf[32];
 
 
+// ---------------- for easyCAT -----------------------------
+typedef union
+{
+    unsigned long   Long;
+    unsigned short  Word[2];
+    unsigned char   Byte[4];
+} ULONG;
+typedef union
+{
+    unsigned short  Word;
+    unsigned char   Byte[2];
+} UWORD;
+
+//-------------------------- process data -----------------------------------------------
+typedef union                               // output per la piastra base
+{                                           //
+  unsigned char  Byte[32];                  // si devono trasferire 32 byte tramite SPI
+  unsigned long  Word[16];                  //
+  unsigned long  Long[8];                   //
+}BUFFOUT;                                   //
+typedef union                               // input dalla piastra base
+{                                           //
+  unsigned char  Byte[32];                  // si trasferiscono 32 byte tramite SPI
+  unsigned long  Word[16];                  //
+  unsigned long  Long[8];                   //
+}BUFFIN;
+static BUFFOUT Out;
+static BUFFIN In;
+
+//---- local functions ----------------------------------------------------------------------------
+void          SPIWriteRegisterDirect   (unsigned short Address, unsigned long DataOut);
+unsigned long SPIReadRegisterDirect    (unsigned short Address, unsigned char Len);
+
+void          SPIWriteRegisterIndirect (unsigned long  DataOut, unsigned short Address);
+unsigned long SPIReadRegisterIndirect  (unsigned short Address, unsigned char Len);
+
+void          SPIReadProcRamFifo(void);
+void          SPIWriteProcRamFifo(void);
+
+//---- EasyCAT board initialization ---------------------------------------------------------------
+unsigned char EasyCAT_Init()
+{
+	unsigned char i;
+	ULONG TempLong;
+
+	chThdSleepMilliseconds(125);
+	//  Delay10KTCYx(200);                                                // wait 125mS
+
+	for (i=0; i<10; i++)                                              // check test register
+	{                                                                 //
+		chThdSleepMilliseconds(12);
+		//    Delay10KTCYx(20);                                               // wait 12.5mS
+		TempLong.Long = SPIReadRegisterDirect (BYTE_TEST, 4);           //
+		if (TempLong.Long == 0x87654321)                                //
+			break;                                                        //
+	}                                                                 //
+	if (i == 10)                                                      //
+		return false;                                                   // we waited for too long: error
+
+	for (i=0; i<10; i++)                                              // check ready flag
+	{                                                                 //
+		chThdSleepMilliseconds(12);
+//		Delay10KTCYx(20);                                               // wait 12.5 mS
+		TempLong.Long = SPIReadRegisterDirect (HW_CFG, 4);              //
+		if ((TempLong.Long & READY) != 0)                               //
+			break;                                                        //
+	}                                                                 //
+	if (i == 10)                                                      //
+		return false;                                                   // we waited for too long: error
+
+	return true;                                                      // EasyCAT initialized
+}
+
+//---- EtherCAT task ------------------------------------------------------------------------------
+void EasyCAT_MainTask()                           // must be called cyclically by the application
+
+{
+  unsigned char WatchDog = 0;
+  unsigned char Operational = 0;
+  unsigned char i;
+  ULONG TempLong;
+
+
+  TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
+  if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
+    WatchDog = 0;                                           // set/reset the corrisponding flag
+  else                                                      //
+    WatchDog = 1;                                           //
+
+  TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
+  if ((TempLong.Byte[0] & 0x0F) == ESM_OP)                  // to see if we are in operational state
+    Operational = 1;                                        //
+  else                                                      // set/reset the corrisponding flag
+    Operational = 0;                                        //
+
+                                                            //--- process data transfert ----------
+                                                            //
+  if (WatchDog | !Operational)                              // if watchdog is active or we are
+  {                                                         // not in operational state, reset
+	  for (i=0; i<4; i++)                                     // the output buffer
+		  Out.Long[i] = 0;                                        //
+  }
+  else
+  {
+    SPIReadProcRamFifo();                                   // otherwise transfer process data from
+                                                            // the EtherCAT core to the output buffer
+  }
+
+  SPIWriteProcRamFifo();                                    // we always transfer process data from
+}
+
+
+
+//---- read a directly addressable registers  -----------------------------------------------------
+unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
+
+                                                   // Address = register to read
+                                                   // Len = number of bytes to read (1,2,3,4)
+                                                   //
+                                                   // a long is returned but only the requested bytes
+                                                   // are meaningful, starting from LsByte
+{
+
+  unsigned char i;
+  ULONG Result;
+  UWORD Addr;
+  Addr.Word = Address;
+
+//  spiAcquireBus(&HW_SPI_DEV);              /* Acquire ownership of the bus.    */
+  spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
+//  Spi1Cs_ = 0;	                                            // SPI chip select enable
+
+  spiSend(&HW_SPI_DEV, 1, COMM_SPI_READ);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
+  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
+//  SPI1Transfer(COMM_SPI_READ);                              // SPI read command
+//  SPI1Transfer(Addr.Byte[1]);                               // address of the register
+//  SPI1Transfer(Addr.Byte[0]);                               // to read, MsByte first
+
+//  spiReceive(&HW_SPI_DEV, Len, Result.Byte);
+  for (i=0; i<Len; i++)                                     // read the requested number of bytes
+  {                                                         // LsByte first
+	  spiReceive(&HW_SPI_DEV, 1, &(Result.Byte[i]));
+//    Result.Byte[i] = SPI1Transfer(DUMMY_BYTE);              //
+  }                                                         //
+
+  spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
+//  Spi1Cs_ = 1;                                              // SPI chip select disable
+
+  return Result.Long;                                       // return the result
+}
+
+//---- write a directly addressable registers  ----------------------------------------------------
+void SPIWriteRegisterDirect (unsigned short Address, unsigned long DataOut)
+                                                   // Address = register to write
+                                                   // DataOut = data to write
+{
+  ULONG Data;
+  UWORD Addr;
+  Addr.Word = Address;
+  Data.Long = DataOut;
+
+  spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
+//  Spi1Cs_ = 0;                                              // SPI chip select enable
+
+  spiSend(&HW_SPI_DEV, 1, COMM_SPI_WRITE);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
+  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
+//  SPI1Transfer(COMM_SPI_WRITE);                             // SPI write command
+//  SPI1Transfer(Addr.Byte[1]);                               // address of the register
+//  SPI1Transfer(Addr.Byte[0]);                               // to write MsByte first
+
+  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[0]));
+  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[1]));
+  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[2]));
+  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[3]));
+//  SPI1Transfer(Data.Byte[0]);                               // data to write
+//  SPI1Transfer(Data.Byte[1]);                               // LsByte first
+//  SPI1Transfer(Data.Byte[2]);                               //
+//  SPI1Transfer(Data.Byte[3]);                               //
+
+  spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
+//  Spi1Cs_ = 1;                                              // SPI chip select disable
+}
+
+//---- read an undirectly addressable registers  --------------------------------------------------
+unsigned long SPIReadRegisterIndirect (unsigned short Address, unsigned char Len)
+
+                                                   // Address = register to read
+                                                   // Len = number of bytes to read (1,2,3,4)
+                                                   //
+                                                   // a long is returned but only the requested bytes
+                                                   // are meaningful, starting from LsByte
+{
+  ULONG TempLong;
+  UWORD Addr;
+  Addr.Word = Address;
+                                                            // compose the command
+                                                            //
+  TempLong.Byte[0] = Addr.Byte[0];                          // address of the register
+  TempLong.Byte[1] = Addr.Byte[1];                          // to read, LsByte first
+  TempLong.Byte[2] = Len;                                   // number of bytes to read
+  TempLong.Byte[3] = ESC_READ;                              // ESC read
+
+  SPIWriteRegisterDirect (ECAT_CSR_CMD, TempLong.Long);     // write the command
+
+  do
+  {                                                         // wait for command execution
+    TempLong.Long = SPIReadRegisterDirect(ECAT_CSR_CMD,4);  //
+  }                                                         //
+  while(TempLong.Byte[3] & ECAT_CSR_BUSY);                  //
+
+
+  TempLong.Long = SPIReadRegisterDirect(ECAT_CSR_DATA,Len); // read the requested register
+  return TempLong.Long;                                     //
+}
+
+//---- write an undirectly addressable registers  -------------------------------------------------
+void  SPIWriteRegisterIndirect (unsigned long DataOut, unsigned short Address)
+
+                                                   // Address = register to write
+                                                   // DataOut = data to write
+{
+  ULONG TempLong;
+  UWORD Addr;
+
+  SPIWriteRegisterDirect (ECAT_CSR_DATA, DataOut);            // write the data
+
+                                                              // compose the command
+                                                              //
+  TempLong.Byte[0] = Addr.Byte[0];                            // address of the register
+  TempLong.Byte[1] = Addr.Byte[1];                            // to write, LsByte first
+  TempLong.Byte[2] = 4;                                       // we write always 4 bytes
+  TempLong.Byte[3] = ESC_WRITE;                               // ESC write
+
+  SPIWriteRegisterDirect (ECAT_CSR_CMD, TempLong.Long);       // write the command
+
+  do                                                          // wait for command execution
+  {                                                           //
+    TempLong.Long = SPIReadRegisterDirect (ECAT_CSR_CMD, 4);  //
+  }                                                           //
+  while (TempLong.Byte[3] & ECAT_CSR_BUSY);                   //
+
+}
+
+//---- read from process ram fifo ----------------------------------------------------------------
+void SPIReadProcRamFifo()             // read 32 bytes from the output process ram, through the fifo
+                                      //
+                                      // these are the bytes received from the EtherCAT master and
+                                      // that will be use by our application to write the outputs
+{
+  ULONG TempLong;
+  unsigned char i;
+
+  SPIWriteRegisterDirect (ECAT_PRAM_RD_ADDR_LEN, 0x00201000);   // we always read 32 bytes   0x0020----
+                                                                // output process ram offset 0x----1000
+
+  SPIWriteRegisterDirect (ECAT_PRAM_RD_CMD, 0x80000000);        // start command
+
+  do                                                            // wait for data to be transferred
+  {                                                             // from the output process ram
+    TempLong.Long = SPIReadRegisterDirect (ECAT_PRAM_RD_CMD,4); // to the read fifo
+  }                                                             //
+  while (!(TempLong.Byte[0] & PRAM_READ_AVAIL) || (TempLong.Byte[1] != 8));
+
+  spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
+//  Spi1Cs_ = 0;                                                  // SPI chip select enable
+
+  spiSend(&HW_SPI_DEV, 1, COMM_SPI_READ);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, 0x00);
+  spiSend(&HW_SPI_DEV, 1, 0x00);
+//  SPI1Transfer(COMM_SPI_READ);                                  // SPI read command
+//  SPI1Transfer(0x00);                                           // address of the read
+//  SPI1Transfer(0x00);                                           // fifo MsByte first
+
+
+  for (i=0; i<32; i++)                                          // 32 bytes read loop
+  {                                                             //
+	  spiReceive(&HW_SPI_DEV, 1, &(Out.Byte[i]));
+//    Out.Byte[i] = SPI1Transfer(DUMMY_BYTE);                     //
+  }                                                             //
+
+  spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
+//  Spi1Cs_ = 1;                                                  // SPI chip select disable
+}
+
+//---- write to the process ram fifo --------------------------------------------------------------
+void SPIWriteProcRamFifo()             // write 32 bytes to the input process ram, through the fifo
+                                       //
+                                       // these are the bytes that we have read from the inputs of our
+                                       // application and that will be sent to the EtherCAT master
+{
+  ULONG TempLong;
+  unsigned char i;
+
+  SPIWriteRegisterDirect (ECAT_PRAM_WR_ADDR_LEN, 0x00201200);   // we always write 32 bytes 0x0020----
+                                                                // input process ram offset 0x----1200
+
+  SPIWriteRegisterDirect (ECAT_PRAM_WR_CMD, 0x80000000);        // start command
+
+  do                                                            // check fifo has available space
+  {                                                             // for data to be written
+    TempLong.Long = SPIReadRegisterDirect (ECAT_PRAM_WR_CMD,4); //
+  }                                                             //
+  while (!(TempLong.Byte[0] & PRAM_WRITE_AVAIL) || (TempLong.Byte[1] < 8) );
+
+  spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
+//  Spi1Cs_ = 0;                                                  // enable SPI chip select
+
+  spiSend(&HW_SPI_DEV, 1, COMM_SPI_WRITE);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, 0x00);
+  spiSend(&HW_SPI_DEV, 1, 0x00);
+//  SPI1Transfer(COMM_SPI_WRITE);                                 // SPI write command
+//  SPI1Transfer(0x00);                                           // address of the write fifo
+//  SPI1Transfer(0x20);                                           // MsByte first
+
+
+  for (i=0; i<32; i++)                                          // 32 bytes write loop
+  {                                                             //
+	  spiSend(&HW_SPI_DEV, 1, &(In.Byte[i]));
+//     SPI1Transfer (In.Byte[i]);                                 //
+  }                                                             //
+                                                                //
+  spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
+//  Spi1Cs_ = 1;                                                  // disable SPI chip select
+}
+
+
+
+// ------------------ for UDP -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 
 #define SOCK_TCPS       0
 #define SOCK_UDPS       1
 #define PORT_TCPS		5000
 #define PORT_UDPS		3000
-
-
 
 void 	  wiz_cris_enter(void)
 {
