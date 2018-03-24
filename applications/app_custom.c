@@ -85,7 +85,7 @@ static uint8_t spiTxBuf[32];
 static uint8_t spiRxBuf[32];
 
 
-// ---------------- for easyCAT -----------------------------
+// ---------------- for easyCAT -------------------------------------------------------------------------------------------------------------------------------------------------
 typedef union
 {
     unsigned long   Long;
@@ -113,6 +113,9 @@ typedef union                               // input dalla piastra base
 }BUFFIN;
 static BUFFOUT Out;
 static BUFFIN In;
+
+int ptrCOMM_SPI_READ[] = {COMM_SPI_READ};
+int ptrCOMM_SPI_WRITE[] = {COMM_SPI_WRITE};
 
 //---- local functions ----------------------------------------------------------------------------
 void          SPIWriteRegisterDirect   (unsigned short Address, unsigned long DataOut);
@@ -217,7 +220,7 @@ unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;	                                            // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, COMM_SPI_READ);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
   spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
   spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
 //  SPI1Transfer(COMM_SPI_READ);                              // SPI read command
@@ -250,7 +253,7 @@ void SPIWriteRegisterDirect (unsigned short Address, unsigned long DataOut)
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                              // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, COMM_SPI_WRITE);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
   spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
   spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
 //  SPI1Transfer(COMM_SPI_WRITE);                             // SPI write command
@@ -353,7 +356,7 @@ void SPIReadProcRamFifo()             // read 32 bytes from the output process r
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                                  // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, COMM_SPI_READ);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, (&ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
   spiSend(&HW_SPI_DEV, 1, 0x00);
   spiSend(&HW_SPI_DEV, 1, 0x00);
 //  SPI1Transfer(COMM_SPI_READ);                                  // SPI read command
@@ -363,7 +366,8 @@ void SPIReadProcRamFifo()             // read 32 bytes from the output process r
 
   for (i=0; i<32; i++)                                          // 32 bytes read loop
   {                                                             //
-	  spiReceive(&HW_SPI_DEV, 1, &(Out.Byte[i]));
+	  spiReceive(&HW_SPI_DEV, 1, &(spiRxBuf[i]));
+//	  spiReceive(&HW_SPI_DEV, 1, &(Out.Byte[i]));
 //    Out.Byte[i] = SPI1Transfer(DUMMY_BYTE);                     //
   }                                                             //
 
@@ -394,7 +398,7 @@ void SPIWriteProcRamFifo()             // write 32 bytes to the input process ra
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                                  // enable SPI chip select
 
-  spiSend(&HW_SPI_DEV, 1, COMM_SPI_WRITE);          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, (&ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
   spiSend(&HW_SPI_DEV, 1, 0x00);
   spiSend(&HW_SPI_DEV, 1, 0x00);
 //  SPI1Transfer(COMM_SPI_WRITE);                                 // SPI write command
@@ -404,7 +408,8 @@ void SPIWriteProcRamFifo()             // write 32 bytes to the input process ra
 
   for (i=0; i<32; i++)                                          // 32 bytes write loop
   {                                                             //
-	  spiSend(&HW_SPI_DEV, 1, &(In.Byte[i]));
+	  spiSend(&HW_SPI_DEV, 1, &(spiTxBuf[i]));
+//	  spiSend(&HW_SPI_DEV, 1, &(In.Byte[i]));
 //     SPI1Transfer (In.Byte[i]);                                 //
   }                                                             //
                                                                 //
@@ -484,44 +489,59 @@ void app_custom_start(void) {
 	palSetPad(HW_SPI_PORT_NSS, HW_SPI_PIN_NSS);
 
 
-//	// W5500 setup
-	reg_wizchip_cris_cbfunc(wiz_cris_enter, wiz_cris_exit);
-	reg_wizchip_cs_cbfunc(wiz_cs_select, wiz_cs_deselect);
-	reg_wizchip_spi_cbfunc(wiz_spi_readbyte, wiz_spi_writebyte);
-	reg_wizchip_spiburst_cbfunc(wiz_spi_readburst, wiz_spi_writeburst);
-
-	//	reg_wizchip_cris_cbfunc(NULL, NULL);
-	//	reg_wizchip_cs_cbfunc(NULL, NULL);
-	//	reg_wizchip_bus_cbfunc(NULL, NULL);
-	//	reg_wizchip_spi_cbfunc(NULL, NULL);
-	//	reg_wizchip_spiburst_cbfunc(NULL, NULL);
-
-	uint8_t bufSize[] = {32, 32, 32, 32};
-//	wizchip_init(bufSize, bufSize); // tx and rx buffer size 2KB
-//	wizchip_init(spiTxBuf, spiRxBuf); // tx and rx buffer size 2KB
-
-	wiz_NetInfo netInfo = { .mac 	= {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},	// Mac address
-			.ip 	= {192, 168, 1, 20},					// IP address
-			.sn 	= {255, 255, 255, 0},					// Subnet mask
-			.gw 	= {192, 168, 1, 100}, 					// Gateway address
-			.dns = {0, 0, 0, 0},
-			.dhcp = NETINFO_STATIC
-	};
-	wizchip_setnetinfo(&netInfo);
-
-
-	// open udp socket
-	switch(getSn_SR(SOCK_UDPS))
-	{
-	case SOCK_UDP:
-		// port already opened as UDP
-		break;
-	case SOCK_CLOSED:
-		socket(SOCK_UDPS, Sn_MR_UDP, PORT_UDPS, 0x00); // open the port
-		break;
-	default:
-		break;
+	// ************************ easyCAT ************************************************************************************
+	if  (EasyCAT_Init() == false)               // se fallisce l'inizializzazione
+	{                                           // dell'EasyCAT resta in loop facendo
+		while (1)                               // lampeggiare il led
+		{                                       //
+			chThdSleepMilliseconds(125);
+			if (EasyCAT_Init() == true) {
+				break;
+			}
+		}
 	}
+
+
+
+
+////	// W5500 setup
+//	reg_wizchip_cris_cbfunc(wiz_cris_enter, wiz_cris_exit);
+//	reg_wizchip_cs_cbfunc(wiz_cs_select, wiz_cs_deselect);
+//	reg_wizchip_spi_cbfunc(wiz_spi_readbyte, wiz_spi_writebyte);
+//	reg_wizchip_spiburst_cbfunc(wiz_spi_readburst, wiz_spi_writeburst);
+//
+//	//	reg_wizchip_cris_cbfunc(NULL, NULL);
+//	//	reg_wizchip_cs_cbfunc(NULL, NULL);
+//	//	reg_wizchip_bus_cbfunc(NULL, NULL);
+//	//	reg_wizchip_spi_cbfunc(NULL, NULL);
+//	//	reg_wizchip_spiburst_cbfunc(NULL, NULL);
+//
+//	uint8_t bufSize[] = {32, 32, 32, 32};
+////	wizchip_init(bufSize, bufSize); // tx and rx buffer size 2KB
+////	wizchip_init(spiTxBuf, spiRxBuf); // tx and rx buffer size 2KB
+//
+//	wiz_NetInfo netInfo = { .mac 	= {0x00, 0x08, 0xdc, 0xab, 0xcd, 0xef},	// Mac address
+//			.ip 	= {192, 168, 1, 20},					// IP address
+//			.sn 	= {255, 255, 255, 0},					// Subnet mask
+//			.gw 	= {192, 168, 1, 100}, 					// Gateway address
+//			.dns = {0, 0, 0, 0},
+//			.dhcp = NETINFO_STATIC
+//	};
+//	wizchip_setnetinfo(&netInfo);
+//
+//
+//	// open udp socket
+//	switch(getSn_SR(SOCK_UDPS))
+//	{
+//	case SOCK_UDP:
+//		// port already opened as UDP
+//		break;
+//	case SOCK_CLOSED:
+//		socket(SOCK_UDPS, Sn_MR_UDP, PORT_UDPS, 0x00); // open the port
+//		break;
+//	default:
+//		break;
+//	}
 
 
 
@@ -607,124 +627,178 @@ static THD_FUNCTION(myudp_thread, arg) {
 		spiTxBuf[21] = encIndexFound;
 
 
+		// ******************************************** easyCAT ********************************************************
+		unsigned char WatchDog = 0;
+		unsigned char Operational = 0;
+		unsigned char i;
+		ULONG TempLong;
 
-		if((size = getSn_RX_RSR(SOCK_UDPS)) > 0)
+		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
+		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
+			WatchDog = 0;                                           // set/reset the corrisponding flag
+		else                                                      //
+			WatchDog = 1;                                           //
+
+		TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
+		if ((TempLong.Byte[0] & 0x0F) == ESM_OP)                  // to see if we are in operational state
+			Operational = 1;                                        //
+		else                                                      // set/reset the corrisponding flag
+			Operational = 0;                                        //
+
+		//--- process data transfer ----------
+		//
+		if (WatchDog | !Operational)                              // if watchdog is active or we are
+		{                                                         // not in operational state, reset
+			for (i=0; i<4; i++)                                     // the output buffer
+				Out.Long[i] = 0;                                        //
+		}
+		else
 		{
-			//if(size > DATA_BUF_SIZE) size = DATA_BUF_SIZE;
-			ret = recvfrom(SOCK_UDPS, spiRxBuf, spiBufSiz, destip, (uint16_t*)&destport);
-			if(ret <= 0)
-			{ // error in receiving
-				// NEEDS TO BE tested, not sure
-				spiTxBuf[12] = 111;  // error code
-				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
-			}
-			else
-			{
-				// motor control
-				motCtr = spiRxBuf[0];
+			SPIReadProcRamFifo();                                   // otherwise transfer process data from
+																	// the EtherCAT core to the output buffer
+//			spiRxBuf = Out.Byte;
 
-//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
-//				motCurDes = *((float*)(&tmpData));
-//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
-//				motRpmDes = *((float*)(&tmpData));
-//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
-//				motPosDes = *((float*)(&tmpData));
+			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
+			motDes = *((float*)(&tmpData));
+			// get the PID value
+			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
+			motKP = *((float*)(&tmpData));
+			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
+			motKI = *((float*)(&tmpData));
+			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
+			motKD = *((float*)(&tmpData));
 
-				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
-				motDes = *((float*)(&tmpData));
-				// get the PID value
-				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
-				motKP = *((float*)(&tmpData));
-				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
-				motKI = *((float*)(&tmpData));
-				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
-				motKD = *((float*)(&tmpData));
+			chptr = (unsigned char *) &motDes;
+			for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
 
-				chptr = (unsigned char *) &motDes;
-				for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
-
-				if (encIndexFound) {
-					if(motCtr==0) { // motor free
-						mc_interface_release_motor();
-						spiTxBuf[12] = 10;
-					}
-					else if(motCtr==1) { // current control mode
-						motCurDes = motDes;
-						mc_interface_set_current(motCurDes);
-						spiTxBuf[12] = 11;
-					}
-					else if(motCtr==2) { // speed control mode
-						mc_interface_release_motor();  // disable
-						//					motRpmDes = motDes;
-						//					mc_interface_set_pid_speed(motRpmDes);
-						spiTxBuf[12] = 12;
-					}
-					else if(motCtr==3) { // position control mode
-						motPosDes = motDes;
-						// set PID value
-						mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
-						mc_interface_set_pid_pos(motPosDes);
-						spiTxBuf[12] = 13;
-					}
-					else {
-						mc_interface_release_motor();
-						spiTxBuf[12] = 14;
-					}
-				}
-				else { // encoder index hasn't been found
+			if (encIndexFound) {
+				if(motCtr==0) { // motor free
 					mc_interface_release_motor();
-					spiTxBuf[12] = 99;
+					spiTxBuf[12] = 10;
 				}
-
-//				ret = sendto(SOCK_UDPS, spiRxBuf, spiBufSiz, remoteip, remoteport);  // send back received data
-				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
+				else if(motCtr==1) { // current control mode
+					motCurDes = motDes;
+					mc_interface_set_current(motCurDes);
+					spiTxBuf[12] = 11;
+				}
+				else if(motCtr==2) { // speed control mode
+					mc_interface_release_motor();  // disable
+					//					motRpmDes = motDes;
+					//					mc_interface_set_pid_speed(motRpmDes);
+					spiTxBuf[12] = 12;
+				}
+				else if(motCtr==3) { // position control mode
+					motPosDes = motDes;
+					// set PID value
+					mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
+					mc_interface_set_pid_pos(motPosDes);
+					spiTxBuf[12] = 13;
+				}
+				else {
+					mc_interface_release_motor();
+					spiTxBuf[12] = 14;
+				}
 			}
-
-
-
-//			size = (uint16_t) ret;
-//			sentsize = 0;
-//			while(sentsize != size)
-//			{
-//				ret = sendto(SOCK_UDPS, buf+sentsize, size-sentsize, destip, destport);
-//				if(ret < 0)
-//				{ // error
-//
-//				}
-//				sentsize += ret; // Don't care SOCKERR_BUSY, because it is zero.
-//			}
+			else { // encoder index hasn't been found
+				mc_interface_release_motor();
+				spiTxBuf[12] = 99;
+			}
 		}
 
+//		In.Byte = spiTxBuf;
+		SPIWriteProcRamFifo();                                    // we always transfer process data from
 
-//		// open udp socket
-//		switch(getSn_SR(SOCK_UDPS))
+
+
+//		// ******************************************** UDP ************************************************************
+//		if((size = getSn_RX_RSR(SOCK_UDPS)) > 0)
 //		{
-//		case SOCK_UDP:
-//			// port already opened as UDP
-//			ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);
-//			break;
-//		case SOCK_CLOSED:
-//			socket(SOCK_UDPS, Sn_MR_UDP, PORT_UDPS, 0x00); // open the port
-//			break;
-//		default:
-//			break;
+//			//if(size > DATA_BUF_SIZE) size = DATA_BUF_SIZE;
+//			ret = recvfrom(SOCK_UDPS, spiRxBuf, spiBufSiz, destip, (uint16_t*)&destport);
+//			if(ret <= 0)
+//			{ // error in receiving
+//				// NEEDS TO BE tested, not sure
+//				spiTxBuf[12] = 111;  // error code
+//				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
+//			}
+//			else
+//			{
+//				// motor control
+//				motCtr = spiRxBuf[0];
+//
+////				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
+////				motCurDes = *((float*)(&tmpData));
+////				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
+////				motRpmDes = *((float*)(&tmpData));
+////				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
+////				motPosDes = *((float*)(&tmpData));
+//
+//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
+//				motDes = *((float*)(&tmpData));
+//				// get the PID value
+//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
+//				motKP = *((float*)(&tmpData));
+//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
+//				motKI = *((float*)(&tmpData));
+//				for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
+//				motKD = *((float*)(&tmpData));
+//
+//				chptr = (unsigned char *) &motDes;
+//				for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
+//
+//				if (encIndexFound) {
+//					if(motCtr==0) { // motor free
+//						mc_interface_release_motor();
+//						spiTxBuf[12] = 10;
+//					}
+//					else if(motCtr==1) { // current control mode
+//						motCurDes = motDes;
+//						mc_interface_set_current(motCurDes);
+//						spiTxBuf[12] = 11;
+//					}
+//					else if(motCtr==2) { // speed control mode
+//						mc_interface_release_motor();  // disable
+//						//					motRpmDes = motDes;
+//						//					mc_interface_set_pid_speed(motRpmDes);
+//						spiTxBuf[12] = 12;
+//					}
+//					else if(motCtr==3) { // position control mode
+//						motPosDes = motDes;
+//						// set PID value
+//						mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
+//						mc_interface_set_pid_pos(motPosDes);
+//						spiTxBuf[12] = 13;
+//					}
+//					else {
+//						mc_interface_release_motor();
+//						spiTxBuf[12] = 14;
+//					}
+//				}
+//				else { // encoder index hasn't been found
+//					mc_interface_release_motor();
+//					spiTxBuf[12] = 99;
+//				}
+//
+////				ret = sendto(SOCK_UDPS, spiRxBuf, spiBufSiz, remoteip, remoteport);  // send back received data
+//				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
+//			}
 //		}
 
 
-//		ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);
+
+
 
 
 		// Run this loop at 1000Hz
-//		chThdSleepMilliseconds(1);
+		chThdSleepMilliseconds(1);
 
 //		systime_t sleep_time = CH_CFG_ST_FREQUENCY / app_get_configuration()->send_can_status_rate_hz;
 //		if (sleep_time == 0) {
 //			sleep_time = 1;
 //		}
-
-		systime_t sleep_time = 3; // has to be greater than 1 to be sure it is not blocking other threads,
-		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
-		chThdSleep(sleep_time);
+//		systime_t sleep_time = 3; // has to be greater than 1 to be sure it is not blocking other threads,
+//		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
+//		chThdSleep(sleep_time);
 
 		// Reset the timeout
 		timeout_reset();
