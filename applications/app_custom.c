@@ -114,8 +114,8 @@ typedef union                               // input dalla piastra base
 static BUFFOUT Out;
 static BUFFIN In;
 
-int ptrCOMM_SPI_READ[] = {COMM_SPI_READ};
-int ptrCOMM_SPI_WRITE[] = {COMM_SPI_WRITE};
+char varCOMM_SPI_READ = COMM_SPI_READ;
+char varCOMM_SPI_WRITE = COMM_SPI_WRITE;
 
 //---- local functions ----------------------------------------------------------------------------
 void          SPIWriteRegisterDirect   (unsigned short Address, unsigned long DataOut);
@@ -219,9 +219,11 @@ unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;	                                            // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
-  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
-  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
+  spiSend(&HW_SPI_DEV, 1, &varCOMM_SPI_READ);          /* Atomic transfer operations.      */
+  char tmpDat = Addr.Byte[1];
+  spiSend(&HW_SPI_DEV, 1, &tmpDat);
+  tmpDat = Addr.Byte[0];
+  spiSend(&HW_SPI_DEV, 1, &tmpDat);
 //  SPI1Transfer(COMM_SPI_READ);                              // SPI read command
 //  SPI1Transfer(Addr.Byte[1]);                               // address of the register
 //  SPI1Transfer(Addr.Byte[0]);                               // to read, MsByte first
@@ -252,17 +254,23 @@ void SPIWriteRegisterDirect (unsigned short Address, unsigned long DataOut)
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                              // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
-  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[1]));
-  spiSend(&HW_SPI_DEV, 1, &(Addr.Byte[0]));
+  spiSend(&HW_SPI_DEV, 1, &varCOMM_SPI_WRITE);          /* Atomic transfer operations.      */
+  char tmpDat = Addr.Byte[1];
+  spiSend(&HW_SPI_DEV, 1, &tmpDat);
+  tmpDat = Addr.Byte[0];
+  spiSend(&HW_SPI_DEV, 1, &tmpDat);
 //  SPI1Transfer(COMM_SPI_WRITE);                             // SPI write command
 //  SPI1Transfer(Addr.Byte[1]);                               // address of the register
 //  SPI1Transfer(Addr.Byte[0]);                               // to write MsByte first
 
-  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[0]));
-  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[1]));
-  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[2]));
-  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[3]));
+  for (int i=0; i<4; i++) {
+	  tmpDat = Data.Byte[i];
+	  spiSend(&HW_SPI_DEV, 1, &tmpDat);
+  }
+//  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[0]));
+//  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[1]));
+//  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[2]));
+//  spiSend(&HW_SPI_DEV, 1, &(Data.Byte[3]));
 //  SPI1Transfer(Data.Byte[0]);                               // data to write
 //  SPI1Transfer(Data.Byte[1]);                               // LsByte first
 //  SPI1Transfer(Data.Byte[2]);                               //
@@ -356,7 +364,7 @@ void SPIReadProcRamFifo()             // read 32 bytes from the output process r
 //  Spi1Cs_ = 0;                                                  // SPI chip select enable
 
 
-  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &varCOMM_SPI_READ);          /* Atomic transfer operations.      */
   char aa = 0x00;
   spiSend(&HW_SPI_DEV, 1, &aa);
   spiSend(&HW_SPI_DEV, 1, &aa);
@@ -365,12 +373,13 @@ void SPIReadProcRamFifo()             // read 32 bytes from the output process r
 //  SPI1Transfer(0x00);                                           // fifo MsByte first
 
 
-  for (i=0; i<32; i++)                                          // 32 bytes read loop
-  {                                                             //
-	  spiReceive(&HW_SPI_DEV, 1, &(spiRxBuf[i]));
-//	  spiReceive(&HW_SPI_DEV, 1, &(Out.Byte[i]));
-//    Out.Byte[i] = SPI1Transfer(DUMMY_BYTE);                     //
-  }                                                             //
+  spiReceive(&HW_SPI_DEV, 32, &spiRxBuf);
+//  for (i=0; i<32; i++)                                          // 32 bytes read loop
+//  {                                                             //
+//	  spiReceive(&HW_SPI_DEV, 1, &(spiRxBuf[i]));
+////	  spiReceive(&HW_SPI_DEV, 1, &(Out.Byte[i]));
+////    Out.Byte[i] = SPI1Transfer(DUMMY_BYTE);                     //
+//  }                                                             //
 
   spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
 //  Spi1Cs_ = 1;                                                  // SPI chip select disable
@@ -399,7 +408,7 @@ void SPIWriteProcRamFifo()             // write 32 bytes to the input process ra
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                                  // enable SPI chip select
 
-  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
+  spiSend(&HW_SPI_DEV, 1, &varCOMM_SPI_WRITE);          /* Atomic transfer operations.      */
   char aa = 0x00;
   spiSend(&HW_SPI_DEV, 1, &aa);
   spiSend(&HW_SPI_DEV, 1, &aa);
@@ -506,6 +515,10 @@ void app_custom_start(void) {
 //		}
 	}
 
+
+	for (uint8_t i=0; i<32; i++) {
+		spiTxBuf[i] = 13;
+	}
 
 
 
