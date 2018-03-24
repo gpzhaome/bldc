@@ -216,7 +216,6 @@ unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
   UWORD Addr;
   Addr.Word = Address;
 
-//  spiAcquireBus(&HW_SPI_DEV);              /* Acquire ownership of the bus.    */
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;	                                            // SPI chip select enable
 
@@ -356,9 +355,11 @@ void SPIReadProcRamFifo()             // read 32 bytes from the output process r
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                                  // SPI chip select enable
 
-  spiSend(&HW_SPI_DEV, 1, (&ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
-  spiSend(&HW_SPI_DEV, 1, 0x00);
-  spiSend(&HW_SPI_DEV, 1, 0x00);
+
+  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_READ[0]));          /* Atomic transfer operations.      */
+  char aa = 0x00;
+  spiSend(&HW_SPI_DEV, 1, &aa);
+  spiSend(&HW_SPI_DEV, 1, &aa);
 //  SPI1Transfer(COMM_SPI_READ);                                  // SPI read command
 //  SPI1Transfer(0x00);                                           // address of the read
 //  SPI1Transfer(0x00);                                           // fifo MsByte first
@@ -398,20 +399,22 @@ void SPIWriteProcRamFifo()             // write 32 bytes to the input process ra
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  Spi1Cs_ = 0;                                                  // enable SPI chip select
 
-  spiSend(&HW_SPI_DEV, 1, (&ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
-  spiSend(&HW_SPI_DEV, 1, 0x00);
-  spiSend(&HW_SPI_DEV, 1, 0x00);
+  spiSend(&HW_SPI_DEV, 1, &(ptrCOMM_SPI_WRITE[0]));          /* Atomic transfer operations.      */
+  char aa = 0x00;
+  spiSend(&HW_SPI_DEV, 1, &aa);
+  spiSend(&HW_SPI_DEV, 1, &aa);
 //  SPI1Transfer(COMM_SPI_WRITE);                                 // SPI write command
 //  SPI1Transfer(0x00);                                           // address of the write fifo
 //  SPI1Transfer(0x20);                                           // MsByte first
 
 
-  for (i=0; i<32; i++)                                          // 32 bytes write loop
-  {                                                             //
-	  spiSend(&HW_SPI_DEV, 1, &(spiTxBuf[i]));
-//	  spiSend(&HW_SPI_DEV, 1, &(In.Byte[i]));
-//     SPI1Transfer (In.Byte[i]);                                 //
-  }                                                             //
+  spiSend(&HW_SPI_DEV, 32, spiTxBuf);
+//  for (i=0; i<32; i++)                                          // 32 bytes write loop
+//  {                                                             //
+//	  spiSend(&HW_SPI_DEV, 1, &(spiTxBuf[i]));
+////	  spiSend(&HW_SPI_DEV, 1, &(In.Byte[i]));
+////     SPI1Transfer (In.Byte[i]);                                 //
+//  }                                                             //
                                                                 //
   spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
 //  Spi1Cs_ = 1;                                                  // disable SPI chip select
@@ -419,52 +422,52 @@ void SPIWriteProcRamFifo()             // write 32 bytes to the input process ra
 
 
 
-// ------------------ for UDP -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//// ------------------ for UDP -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+//#define SOCK_TCPS       0
+//#define SOCK_UDPS       1
+//#define PORT_TCPS		5000
+//#define PORT_UDPS		3000
+//
+//void 	  wiz_cris_enter(void)
+//{
+//	spiAcquireBus(&HW_SPI_DEV);              /* Acquire ownership of the bus.    */
+//	spiStart(&HW_SPI_DEV, &spiudpcfg);       /* Setup transfer parameters.       */
+//}
+//void 	  wiz_cris_exit(void)
+//{
+//	spiReleaseBus(&HW_SPI_DEV);              /* Ownership release.               */
+//}
+//
+//void 	wiz_cs_select(void)
+//{
+//	spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
+//}
+//
+//void 	wiz_cs_deselect(void)
+//{
+//	spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
+//}
+//
+//uint8_t wiz_spi_readbyte(void)
+//{
+//	uint8_t rxbuf = 0;
+//	spiReceive(&HW_SPI_DEV, 1, &rxbuf);
+//	return rxbuf;
+//}
+//void 	wiz_spi_writebyte(uint8_t wb)
+//{
+//	spiSend(&HW_SPI_DEV, 1, &wb);          /* Atomic transfer operations.      */
+//}
+//void 	wiz_spi_readburst(uint8_t* pBuf, uint16_t len)
+//{
+//	spiReceive(&HW_SPI_DEV, len, pBuf);
+//}
+//void 	wiz_spi_writeburst(uint8_t* pBuf, uint16_t len)
+//{
+//	spiSend(&HW_SPI_DEV, len, pBuf);          /* Atomic transfer operations.      */
+//}
 
 
-#define SOCK_TCPS       0
-#define SOCK_UDPS       1
-#define PORT_TCPS		5000
-#define PORT_UDPS		3000
-
-void 	  wiz_cris_enter(void)
-{
-	spiAcquireBus(&HW_SPI_DEV);              /* Acquire ownership of the bus.    */
-	spiStart(&HW_SPI_DEV, &spiudpcfg);       /* Setup transfer parameters.       */
-}
-void 	  wiz_cris_exit(void)
-{
-	spiReleaseBus(&HW_SPI_DEV);              /* Ownership release.               */
-}
-
-void 	wiz_cs_select(void)
-{
-	spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
-}
-
-void 	wiz_cs_deselect(void)
-{
-	spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
-}
-
-uint8_t wiz_spi_readbyte(void)
-{
-	uint8_t rxbuf = 0;
-	spiReceive(&HW_SPI_DEV, 1, &rxbuf);
-	return rxbuf;
-}
-void 	wiz_spi_writebyte(uint8_t wb)
-{
-	spiSend(&HW_SPI_DEV, 1, &wb);          /* Atomic transfer operations.      */
-}
-void 	wiz_spi_readburst(uint8_t* pBuf, uint16_t len)
-{
-	spiReceive(&HW_SPI_DEV, len, pBuf);
-}
-void 	wiz_spi_writeburst(uint8_t* pBuf, uint16_t len)
-{
-	spiSend(&HW_SPI_DEV, len, pBuf);          /* Atomic transfer operations.      */
-}
 
 
 void app_custom_start(void) {
@@ -492,13 +495,15 @@ void app_custom_start(void) {
 	// ************************ easyCAT ************************************************************************************
 	if  (EasyCAT_Init() == false)               // se fallisce l'inizializzazione
 	{                                           // dell'EasyCAT resta in loop facendo
-		while (1)                               // lampeggiare il led
-		{                                       //
-			chThdSleepMilliseconds(125);
-			if (EasyCAT_Init() == true) {
-				break;
-			}
-		}
+//		int i = 0;
+//		while (i<10)                               // lampeggiare il led
+//		{                                       //
+//			chThdSleepMilliseconds(125);
+//			if (EasyCAT_Init() == true) {
+//				break;
+//			}
+//			i++;
+//		}
 	}
 
 
@@ -600,112 +605,116 @@ static THD_FUNCTION(myudp_thread, arg) {
 
 
 	for(;;) {
-//		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
-		motCur = mc_interface_get_tot_current_directional_filtered();
-		motAng = encoder_read_deg();
-		motRpm = mc_interface_get_rpm();
-		motSta = mc_interface_get_state();
-		motFal = mc_interface_get_fault();
-		batVol = GET_INPUT_VOLTAGE();
-		batCur = mc_interface_get_tot_current_filtered(); // sign denotes motor draw(+) or generate(-) current
 
-		encIndexFound = encoder_index_found();
+////		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
+//		motCur = mc_interface_get_tot_current_directional_filtered();
+//		motAng = encoder_read_deg();
+//		motRpm = mc_interface_get_rpm();
+//		motSta = mc_interface_get_state();
+//		motFal = mc_interface_get_fault();
+//		batVol = GET_INPUT_VOLTAGE();
+//		batCur = mc_interface_get_tot_current_filtered(); // sign denotes motor draw(+) or generate(-) current
+//
+//		encIndexFound = encoder_index_found();
+//
+//		chptr = (unsigned char *) &motCur;
+//		for(int i=0; i<4; i++) { spiTxBuf[i] = *chptr++; }
+//		chptr = (unsigned char *) &motAng;
+//		for(int i=0; i<4; i++) { spiTxBuf[i+4] = *chptr++; }
+//		chptr = (unsigned char *) &motRpm;
+//		for(int i=0; i<4; i++) { spiTxBuf[i+8] = *chptr++; }
+//		spiTxBuf[12] = motSta*10 + motFal;
+//
+//		chptr = (unsigned char *) &batVol;
+//		for(int i=0; i<4; i++) { spiTxBuf[i+13] = *chptr++; }
+//		chptr = (unsigned char *) &batCur;
+//		for(int i=0; i<4; i++) { spiTxBuf[i+17] = *chptr++; }
+//
+//		spiTxBuf[21] = encIndexFound;
+//
+//
+//		// ******************************************** easyCAT ********************************************************
+//		unsigned char WatchDog = 0;
+//		unsigned char Operational = 0;
+//		unsigned char i;
+//		ULONG TempLong;
+//
+//		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
+//		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
+//			WatchDog = 0;                                           // set/reset the corrisponding flag
+//		else                                                      //
+//			WatchDog = 1;                                           //
+//
+//		TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
+//		if ((TempLong.Byte[0] & 0x0F) == ESM_OP)                  // to see if we are in operational state
+//			Operational = 1;                                        //
+//		else                                                      // set/reset the corrisponding flag
+//			Operational = 0;                                        //
+//
+//		//--- process data transfer ----------
+//		//
+//		if (WatchDog | !Operational)                              // if watchdog is active or we are
+//		{                                                         // not in operational state, reset
+//			for (i=0; i<4; i++)                                     // the output buffer
+//				Out.Long[i] = 0;                                        //
+//		}
+//		else
+//		{
+//			SPIReadProcRamFifo();                                   // otherwise transfer process data from
+//																	// the EtherCAT core to the output buffer
+////			spiRxBuf = Out.Byte;
+//
+//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
+//			motDes = *((float*)(&tmpData));
+//			// get the PID value
+//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
+//			motKP = *((float*)(&tmpData));
+//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
+//			motKI = *((float*)(&tmpData));
+//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
+//			motKD = *((float*)(&tmpData));
+//
+//			chptr = (unsigned char *) &motDes;
+//			for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
+//
+//			if (encIndexFound) {
+//				if(motCtr==0) { // motor free
+//					mc_interface_release_motor();
+//					spiTxBuf[12] = 10;
+//				}
+//				else if(motCtr==1) { // current control mode
+//					motCurDes = motDes;
+//					mc_interface_set_current(motCurDes);
+//					spiTxBuf[12] = 11;
+//				}
+//				else if(motCtr==2) { // speed control mode
+//					mc_interface_release_motor();  // disable
+//					//					motRpmDes = motDes;
+//					//					mc_interface_set_pid_speed(motRpmDes);
+//					spiTxBuf[12] = 12;
+//				}
+//				else if(motCtr==3) { // position control mode
+//					motPosDes = motDes;
+//					// set PID value
+//					mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
+//					mc_interface_set_pid_pos(motPosDes);
+//					spiTxBuf[12] = 13;
+//				}
+//				else {
+//					mc_interface_release_motor();
+//					spiTxBuf[12] = 14;
+//				}
+//			}
+//			else { // encoder index hasn't been found
+//				mc_interface_release_motor();
+//				spiTxBuf[12] = 99;
+//			}
+//		}
 
-		chptr = (unsigned char *) &motCur;
-		for(int i=0; i<4; i++) { spiTxBuf[i] = *chptr++; }
-		chptr = (unsigned char *) &motAng;
-		for(int i=0; i<4; i++) { spiTxBuf[i+4] = *chptr++; }
-		chptr = (unsigned char *) &motRpm;
-		for(int i=0; i<4; i++) { spiTxBuf[i+8] = *chptr++; }
-		spiTxBuf[12] = motSta*10 + motFal;
-
-		chptr = (unsigned char *) &batVol;
-		for(int i=0; i<4; i++) { spiTxBuf[i+13] = *chptr++; }
-		chptr = (unsigned char *) &batCur;
-		for(int i=0; i<4; i++) { spiTxBuf[i+17] = *chptr++; }
-
-		spiTxBuf[21] = encIndexFound;
-
-
-		// ******************************************** easyCAT ********************************************************
-		unsigned char WatchDog = 0;
-		unsigned char Operational = 0;
-		unsigned char i;
-		ULONG TempLong;
-
-		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
-		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
-			WatchDog = 0;                                           // set/reset the corrisponding flag
-		else                                                      //
-			WatchDog = 1;                                           //
-
-		TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
-		if ((TempLong.Byte[0] & 0x0F) == ESM_OP)                  // to see if we are in operational state
-			Operational = 1;                                        //
-		else                                                      // set/reset the corrisponding flag
-			Operational = 0;                                        //
-
-		//--- process data transfer ----------
-		//
-		if (WatchDog | !Operational)                              // if watchdog is active or we are
-		{                                                         // not in operational state, reset
-			for (i=0; i<4; i++)                                     // the output buffer
-				Out.Long[i] = 0;                                        //
+//		SPIReadProcRamFifo();
+		for (uint8_t i=0; i<32; i++) {
+			spiTxBuf[i] = 13;
 		}
-		else
-		{
-			SPIReadProcRamFifo();                                   // otherwise transfer process data from
-																	// the EtherCAT core to the output buffer
-//			spiRxBuf = Out.Byte;
-
-			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
-			motDes = *((float*)(&tmpData));
-			// get the PID value
-			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
-			motKP = *((float*)(&tmpData));
-			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
-			motKI = *((float*)(&tmpData));
-			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
-			motKD = *((float*)(&tmpData));
-
-			chptr = (unsigned char *) &motDes;
-			for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
-
-			if (encIndexFound) {
-				if(motCtr==0) { // motor free
-					mc_interface_release_motor();
-					spiTxBuf[12] = 10;
-				}
-				else if(motCtr==1) { // current control mode
-					motCurDes = motDes;
-					mc_interface_set_current(motCurDes);
-					spiTxBuf[12] = 11;
-				}
-				else if(motCtr==2) { // speed control mode
-					mc_interface_release_motor();  // disable
-					//					motRpmDes = motDes;
-					//					mc_interface_set_pid_speed(motRpmDes);
-					spiTxBuf[12] = 12;
-				}
-				else if(motCtr==3) { // position control mode
-					motPosDes = motDes;
-					// set PID value
-					mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
-					mc_interface_set_pid_pos(motPosDes);
-					spiTxBuf[12] = 13;
-				}
-				else {
-					mc_interface_release_motor();
-					spiTxBuf[12] = 14;
-				}
-			}
-			else { // encoder index hasn't been found
-				mc_interface_release_motor();
-				spiTxBuf[12] = 99;
-			}
-		}
-
-//		In.Byte = spiTxBuf;
 		SPIWriteProcRamFifo();                                    // we always transfer process data from
 
 
