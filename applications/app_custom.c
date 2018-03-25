@@ -30,6 +30,7 @@
 #include APP_CUSTOM_TO_USE
 #endif
 
+#include "commands.h"
 
 #include "ch.h" // ChibiOS
 #include "hal.h" // ChibiOS HAL
@@ -39,6 +40,8 @@
 #include "hw.h" // Pin mapping on this hardware
 #include "timeout.h" // To reset the timeout
 #include <math.h>
+
+
 
 // define the wizchip as 5500, _WIZCHIP_
 #include "./ioLibrary/Ethernet/wizchip_conf.h"
@@ -504,6 +507,8 @@ void app_custom_start(void) {
 	// ************************ easyCAT ************************************************************************************
 	if  (EasyCAT_Init() == false)               // se fallisce l'inizializzazione
 	{                                           // dell'EasyCAT resta in loop facendo
+
+		commands_printf("Error in initializing EasyCAT. \n");
 //		int i = 0;
 //		while (i<10)                               // lampeggiare il led
 //		{                                       //
