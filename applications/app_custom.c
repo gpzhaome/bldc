@@ -89,11 +89,9 @@ static uint8_t spiRxBuf[32];
 
 
 // ---------------- for easyCAT -------------------------------------------------------------------------------------------------------------------------------------------------
-char varCOMM_SPI_READ = COMM_SPI_READ;
-char varCOMM_SPI_WRITE = COMM_SPI_WRITE;
-
+static volatile bool easycat_initialized = false;
 SyncMode easyCAT_Sync_ = DC_SYNC; // define ethercat sync mode
-
+//SyncMode easyCAT_Sync_ = ASYNC;
 
 PROCBUFFER_OUT BufferOut;               // output process data buffer
 PROCBUFFER_IN BufferIn;                 // input process data buffer
@@ -110,6 +108,8 @@ void          SPIWriteProcRamFifo();
 inline static void SPI_TransferTx (unsigned char Data)         // macro for the SPI transfer
 {
 	uint8_t rxbuf = 0;
+
+//	spiSend(&HW_SPI_DEV, 1, &Data);
 	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
 //    bcm2835_spi_transfer(Data);                                //
 };                                                             //
@@ -129,6 +129,28 @@ inline static unsigned char SPI_TransferRx (unsigned char Data)//
 //    return bcm2835_spi_transfer(Data);                         //
 };
 
+
+static void terminal_cmd_ethercat_status(int argc, const char **argv) {
+	(void)argc;
+	(void)argv;
+
+	commands_printf("etherCAT Status");
+	commands_printf("Output: %s", easycat_initialized ? "On" : "Off");
+	commands_printf(" ");
+}
+
+void app_custom_configure(app_configuration *conf) {
+//	config = *conf;
+
+	terminal_register_command_callback(
+			"etherCAT_status",
+			"Print the status of the etherCAT app",
+			0,
+			terminal_cmd_ethercat_status);
+}
+
+
+
 //---- EasyCAT board initialization ---------------------------------------------------------------
 unsigned char EasyCAT_Init()
 {
@@ -147,6 +169,7 @@ unsigned char EasyCAT_Init()
 	{                                                       //
 		i++;                                                  //
 		TempLong.Long = SPIReadRegisterDirect (RESET_CTL, 4); //
+//		commands_printf("Wait for reset. \n");
 	}while (((TempLong.Byte[0] & 0x01) != 0x00) && (i != Tout));
 	//
 	if (i == Tout)                                          // time out expired
@@ -159,6 +182,7 @@ unsigned char EasyCAT_Init()
 	{                                                       //
 		i++;                                                  //
 		TempLong.Long = SPIReadRegisterDirect (BYTE_TEST, 4); //
+//		commands_printf("check the Byte Order Test Register. \n");
 	}while ((TempLong.Long != 0x87654321) && (i != Tout));  //
 	//
 	if (i == Tout)                                          // time out expired
@@ -171,13 +195,13 @@ unsigned char EasyCAT_Init()
 	{                                                       //
 		i++;                                                  //
 		TempLong.Long = SPIReadRegisterDirect (HW_CFG, 4);    //
+//		commands_printf("check the Ready flag \n");
 	}while (((TempLong.Byte[3] & READY) == 0) && (i != Tout));//
 	//
 	if (i == Tout)                                          // time out expired
 	{                                                       //
 		return false;                                         // initialization failed
 	}
-
 
 
 #ifdef BYTE_NUM
@@ -668,10 +692,16 @@ void app_custom_start(void) {
 	palSetPad(HW_SPI_PORT_NSS, HW_SPI_PIN_NSS);
 
 
-	// ************************ easyCAT ************************************************************************************
-	if  (EasyCAT_Init() == false)               // se fallisce l'inizializzazione
-	{                                           // dell'EasyCAT resta in loop facendo
+	// important to acquire before using the spi
+	spiAcquireBus(&HW_SPI_DEV);              /* Acquire ownership of the bus.    */
+	spiStart(&HW_SPI_DEV, &spiudpcfg);       /* Setup transfer parameters.       */
 
+//	commands_printf("Init. \n");
+
+	// ************************ easyCAT ************************************************************************************
+	easycat_initialized = EasyCAT_Init();
+	if  (easycat_initialized == false)               // se fallisce l'inizializzazione
+	{                                           // dell'EasyCAT resta in loop facendo
 		commands_printf("Error in initializing EasyCAT. \n");
 //		int i = 0;
 //		while (i<10)                               // lampeggiare il led
@@ -682,6 +712,10 @@ void app_custom_start(void) {
 //			}
 //			i++;
 //		}
+	}
+	else
+	{
+		commands_printf("Successfully initialized EasyCAT. \n");
 	}
 
 
