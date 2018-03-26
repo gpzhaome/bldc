@@ -614,6 +614,17 @@ void mcpwm_set_pid_speed(float rpm) {
 	speed_pid_set_rpm = rpm;
 }
 
+
+/**
+ * Set the PID value for the position control
+ */
+void mcpwm_set_pid_para_pos(float motKP, float motKI, float motKD) {
+	conf->p_pid_kp = motKP;
+	conf->p_pid_ki = motKI;
+	conf->p_pid_kp = motKD;
+}
+
+
 /**
  * Use PID position control. Note that this only works when encoder support
  * is enabled.

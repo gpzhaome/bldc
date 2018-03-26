@@ -80,12 +80,12 @@ static const SPIConfig spiudpcfg = {
 };
 
 
-/*
- * SPI TX and RX buffers.
- */
-static uint8_t spiBufSiz = 32;
-static uint8_t spiTxBuf[32];
-static uint8_t spiRxBuf[32];
+///*
+// * SPI TX and RX buffers.
+// */
+//static uint8_t spiBufSiz = 32;
+//static uint8_t spiTxBuf[32];
+//static uint8_t spiRxBuf[32];
 
 
 // ---------------- for easyCAT -------------------------------------------------------------------------------------------------------------------------------------------------
@@ -283,62 +283,60 @@ unsigned char EasyCAT_Init()
 
 }
 
-//---- EtherCAT task ------------------------------------------------------------------------------
-void EasyCAT_MainTask()                           // must be called cyclically by the application
-{
-	bool WatchDog = true;
-	bool Operational = false;
-	unsigned char i;
-	ULONG TempLong;
-	unsigned char Status;
-
-
-	TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
-	if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
-		WatchDog = false;                                       // set/reset the corrisponding flag
-	else                                                      //
-		WatchDog = true;                                        //
-
-
-	TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
-	Status = TempLong.Byte[0] & 0x0F;                         //
-	if (Status == ESM_OP)                                     // to see if we are in operational state
-		Operational = true;                                     //
-	else                                                      // set/reset the corrisponding flag
-		Operational = false;                                    //
-
-
-	//--- process data transfer ----------
-	//
-	if (WatchDog | !Operational)                              // if watchdog is active or we are
-	{                                                         // not in operational state, reset
-		for (i=0; i < TOT_BYTE_NUM_OUT ; i++)                   // the output buffer
-			BufferOut.Byte[i] = 0;                                  //
-
-		/*                                                          // debug
-	    if (!Operational)                                       //
-	      printf("Not operational\n");                          //
-	    if (WatchDog)                                           //
-	      printf("WatchDog\n");                           	    //
-		 */                                                          //
-	}
-
-	else
-	{
-		SPIReadProcRamFifo();                                   // otherwise transfer process data from
-
-	}                                                         // the EtherCAT core to the output buffer
-
-	SPIWriteProcRamFifo();                                    // we always transfer process data from
-	// the input buffer to the EtherCAT core
-
-	if (WatchDog)                                             // return the status of the State Machine
-	{                                                         // and of the watchdog
-		Status |= 0x80;                                         //
-	}                                                         //
-	return Status;                                            //
-
-}
+////---- EtherCAT task ------------------------------------------------------------------------------
+//unsigned char EasyCAT_MainTask()                           // must be called cyclically by the application
+//{
+//	bool WatchDog = true;
+//	bool Operational = false;
+//	unsigned char i;
+//	ULONG TempLong;
+//	unsigned char Status;
+//
+//
+//	TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
+//	if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
+//		WatchDog = false;                                       // set/reset the corrisponding flag
+//	else                                                      //
+//		WatchDog = true;                                        //
+//
+//
+//	TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
+//	Status = TempLong.Byte[0] & 0x0F;                         //
+//	if (Status == ESM_OP)                                     // to see if we are in operational state
+//		Operational = true;                                     //
+//	else                                                      // set/reset the corrisponding flag
+//		Operational = false;                                    //
+//
+//
+//	//--- process data transfer ----------
+//	//
+//	if (WatchDog | !Operational)                              // if watchdog is active or we are
+//	{                                                         // not in operational state, reset
+//		for (i=0; i < TOT_BYTE_NUM_OUT ; i++)                   // the output buffer
+//			BufferOut.Byte[i] = 0;                                  //
+//
+//		/*                                                          // debug
+//	    if (!Operational)                                       //
+//	      printf("Not operational\n");                          //
+//	    if (WatchDog)                                           //
+//	      printf("WatchDog\n");                           	    //
+//		 */                                                          //
+//	}
+//	else
+//	{
+//		SPIReadProcRamFifo();                                   // otherwise transfer process data from
+//	}                                                         // the EtherCAT core to the output buffer
+//
+//	SPIWriteProcRamFifo();                                    // we always transfer process data from
+//	// the input buffer to the EtherCAT core
+//
+//	if (WatchDog)                                             // return the status of the State Machine
+//	{                                                         // and of the watchdog
+//		Status |= 0x80;                                         //
+//	}                                                         //
+//	return Status;                                            //
+//
+//}
 
 
 
@@ -719,11 +717,6 @@ void app_custom_start(void) {
 	}
 
 
-	for (uint8_t i=0; i<32; i++) {
-		spiTxBuf[i] = 13;
-	}
-
-
 
 ////	// W5500 setup
 //	reg_wizchip_cris_cbfunc(wiz_cris_enter, wiz_cris_exit);
@@ -810,129 +803,142 @@ static THD_FUNCTION(myudp_thread, arg) {
 	uint8_t tmpData[4];
 
 
-	int32_t  ret;
-	uint16_t size, sentsize;
-	uint8_t  destip[4];
-	uint16_t destport;
-	uint8_t* bufRev;
+//	int32_t  ret;
+//	uint16_t size, sentsize;
+//	uint8_t  destip[4];
+//	uint16_t destport;
+//	uint8_t* bufRev;
+//
+//	uint8_t  remoteip[4] = {192, 168, 1, 4}; // xpc target ip
+//	uint16_t remoteport = 8001;
 
-	uint8_t  remoteip[4] = {192, 168, 1, 4}; // xpc target ip
-	uint16_t remoteport = 8001;
-
+	unsigned char ethercat_status = 0;
+	ethercat_status |= 0x80;
 
 	for(;;) {
 
-////		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
-//		motCur = mc_interface_get_tot_current_directional_filtered();
-//		motAng = encoder_read_deg();
-//		motRpm = mc_interface_get_rpm();
-//		motSta = mc_interface_get_state();
-//		motFal = mc_interface_get_fault();
-//		batVol = GET_INPUT_VOLTAGE();
-//		batCur = mc_interface_get_tot_current_filtered(); // sign denotes motor draw(+) or generate(-) current
-//
-//		encIndexFound = encoder_index_found();
-//
-//		chptr = (unsigned char *) &motCur;
-//		for(int i=0; i<4; i++) { spiTxBuf[i] = *chptr++; }
-//		chptr = (unsigned char *) &motAng;
-//		for(int i=0; i<4; i++) { spiTxBuf[i+4] = *chptr++; }
-//		chptr = (unsigned char *) &motRpm;
-//		for(int i=0; i<4; i++) { spiTxBuf[i+8] = *chptr++; }
-//		spiTxBuf[12] = motSta*10 + motFal;
-//
-//		chptr = (unsigned char *) &batVol;
-//		for(int i=0; i<4; i++) { spiTxBuf[i+13] = *chptr++; }
-//		chptr = (unsigned char *) &batCur;
-//		for(int i=0; i<4; i++) { spiTxBuf[i+17] = *chptr++; }
-//
-//		spiTxBuf[21] = encIndexFound;
-//
-//
-//		// ******************************************** easyCAT ********************************************************
-//		unsigned char WatchDog = 0;
-//		unsigned char Operational = 0;
-//		unsigned char i;
-//		ULONG TempLong;
-//
-//		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
-//		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
-//			WatchDog = 0;                                           // set/reset the corrisponding flag
-//		else                                                      //
-//			WatchDog = 1;                                           //
-//
-//		TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
-//		if ((TempLong.Byte[0] & 0x0F) == ESM_OP)                  // to see if we are in operational state
-//			Operational = 1;                                        //
-//		else                                                      // set/reset the corrisponding flag
-//			Operational = 0;                                        //
-//
-//		//--- process data transfer ----------
-//		//
-//		if (WatchDog | !Operational)                              // if watchdog is active or we are
-//		{                                                         // not in operational state, reset
-//			for (i=0; i<4; i++)                                     // the output buffer
-//				Out.Long[i] = 0;                                        //
-//		}
-//		else
-//		{
-//			SPIReadProcRamFifo();                                   // otherwise transfer process data from
-//																	// the EtherCAT core to the output buffer
-////			spiRxBuf = Out.Byte;
-//
-//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+1]; }
-//			motDes = *((float*)(&tmpData));
-//			// get the PID value
-//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+5]; }
-//			motKP = *((float*)(&tmpData));
-//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+9]; }
-//			motKI = *((float*)(&tmpData));
-//			for (int i=0; i<4; i++) { tmpData[i] = spiRxBuf[i+13]; }
-//			motKD = *((float*)(&tmpData));
-//
-//			chptr = (unsigned char *) &motDes;
-//			for(int i=0; i<4; i++) { spiTxBuf[i+22] = *chptr++; }
-//
-//			if (encIndexFound) {
-//				if(motCtr==0) { // motor free
-//					mc_interface_release_motor();
-//					spiTxBuf[12] = 10;
-//				}
-//				else if(motCtr==1) { // current control mode
-//					motCurDes = motDes;
-//					mc_interface_set_current(motCurDes);
-//					spiTxBuf[12] = 11;
-//				}
-//				else if(motCtr==2) { // speed control mode
-//					mc_interface_release_motor();  // disable
-//					//					motRpmDes = motDes;
-//					//					mc_interface_set_pid_speed(motRpmDes);
-//					spiTxBuf[12] = 12;
-//				}
-//				else if(motCtr==3) { // position control mode
-//					motPosDes = motDes;
-//					// set PID value
-//					mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
-//					mc_interface_set_pid_pos(motPosDes);
-//					spiTxBuf[12] = 13;
-//				}
-//				else {
-//					mc_interface_release_motor();
-//					spiTxBuf[12] = 14;
-//				}
-//			}
-//			else { // encoder index hasn't been found
-//				mc_interface_release_motor();
-//				spiTxBuf[12] = 99;
-//			}
-//		}
+//		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
+		motCur = mc_interface_get_tot_current_directional_filtered();
+		motAng = encoder_read_deg();
+		motRpm = mc_interface_get_rpm();
+		motSta = mc_interface_get_state();
+		motFal = mc_interface_get_fault();
+		batVol = GET_INPUT_VOLTAGE();
+		batCur = mc_interface_get_tot_current_filtered(); // sign denotes motor draw(+) or generate(-) current
+
+		encIndexFound = encoder_index_found();
+
+		chptr = (unsigned char *) &motCur;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i] = *chptr++; }
+		chptr = (unsigned char *) &motAng;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i+4] = *chptr++; }
+		chptr = (unsigned char *) &motRpm;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i+8] = *chptr++; }
+		BufferIn.Byte[12] = motSta*10 + motFal;
+
+		chptr = (unsigned char *) &batVol;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i+13] = *chptr++; }
+		chptr = (unsigned char *) &batCur;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i+17] = *chptr++; }
+
+		BufferIn.Byte[21] = encIndexFound;
 
 
-		for (uint8_t i=0; i<32; i++) {
-			BufferIn.Byte[i] = 13;
-			//			spiTxBuf[i] = 13;
+		// ******************************************** easyCAT ********************************************************
+//		ethercat_status = EasyCAT_MainTask();
+		bool WatchDog = true;
+		bool Operational = false;
+		unsigned char i;
+		ULONG TempLong;
+		unsigned char Status;
+
+		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
+		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
+			WatchDog = false;                                       // set/reset the corrisponding flag
+		else                                                      //
+			WatchDog = true;                                        //
+
+		TempLong.Long = SPIReadRegisterIndirect (AL_STATUS, 1);   // read the EtherCAT State Machine status
+		Status = TempLong.Byte[0] & 0x0F;                         //
+		if (Status == ESM_OP)                                     // to see if we are in operational state
+			Operational = true;                                     //
+		else                                                      // set/reset the corrisponding flag
+			Operational = false;                                    //
+
+		//--- process data transfer ----------
+		if (WatchDog | !Operational)                              // if watchdog is active or we are
+		{                                                         // not in operational state, reset
+			for (i=0; i < TOT_BYTE_NUM_OUT ; i++)                   // the output buffer
+				BufferOut.Byte[i] = 0;                                  //
 		}
-		EasyCAT_MainTask();
+		else
+		{
+			// otherwise transfer process data from the EtherCAT core to the output buffer
+			SPIReadProcRamFifo();
+		}
+
+		motCtr = BufferOut.Byte[0];
+		for (int i=0; i<4; i++) { tmpData[i] = BufferOut.Byte[i+1]; }
+		motDes = *((float*)(&tmpData));
+		// get the PID value
+		for (int i=0; i<4; i++) { tmpData[i] = BufferOut.Byte[i+5]; }
+		motKP = *((float*)(&tmpData));
+		for (int i=0; i<4; i++) { tmpData[i] = BufferOut.Byte[i+9]; }
+		motKI = *((float*)(&tmpData));
+		for (int i=0; i<4; i++) { tmpData[i] = BufferOut.Byte[i+13]; }
+		motKD = *((float*)(&tmpData));
+
+		chptr = (unsigned char *) &motDes;
+		for(int i=0; i<4; i++) { BufferIn.Byte[i+22] = *chptr++; }
+
+		if (WatchDog | !Operational)	// not in the operational mode, release the motor
+		{
+			mc_interface_release_motor(); // release the motor
+			BufferIn.Byte[12] = 49; // code for not in operation mode
+		}
+		else
+		{
+			if (encIndexFound) {
+				if(motCtr==0) { // motor free
+					mc_interface_release_motor();
+					BufferIn.Byte[12] = 10;
+				}
+				else if(motCtr==1) { // current control mode
+					motCurDes = motDes;
+					mc_interface_set_current(motCurDes);
+					BufferIn.Byte[12] = 11;
+				}
+				else if(motCtr==2) { // speed control mode
+					mc_interface_release_motor();  // disable
+					//					motRpmDes = motDes;
+					//					mc_interface_set_pid_speed(motRpmDes);
+					BufferIn.Byte[12] = 12;
+				}
+				else if(motCtr==3) { // position control mode
+					motPosDes = motDes;
+					// set PID value
+					mc_interface_set_pid_para_pos(motKP, motKI, motKD); // set the PID value
+					mc_interface_set_pid_pos(motPosDes);
+					BufferIn.Byte[12] = 13;
+				}
+				else {
+					mc_interface_release_motor();
+					BufferIn.Byte[12] = 14;
+				}
+			}
+			else { // encoder index hasn't been found
+				mc_interface_release_motor();
+				BufferIn.Byte[12] = 99;
+			}
+		}
+
+		SPIWriteProcRamFifo();                                    // we always transfer process data from
+		// the input buffer to the EtherCAT core
+
+		if (WatchDog)                                             // return the status of the State Machine
+		{                                                         // and of the watchdog
+			Status |= 0x80;                                         //
+		}                                                         //
 
 
 //		// ******************************************** UDP ************************************************************

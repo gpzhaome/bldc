@@ -377,6 +377,27 @@ void mc_interface_set_pid_speed(float rpm) {
 	}
 }
 
+void mc_interface_set_pid_para_pos(float motKP, float motKI, float motKD) {
+	// change the PID value of the position control
+	if (mc_interface_try_input()) {
+		return;
+	}
+
+	switch (m_conf.motor_type) {
+	case MOTOR_TYPE_BLDC:
+	case MOTOR_TYPE_DC:
+		mcpwm_set_pid_para_pos(motKP, motKI, motKD);
+		break;
+
+	case MOTOR_TYPE_FOC:
+		mcpwm_foc_set_pid_para_pos(motKP, motKI, motKD);
+		break;
+
+	default:
+		break;
+	}
+}
+
 void mc_interface_set_pid_pos(float pos) {
 	if (mc_interface_try_input()) {
 		return;
