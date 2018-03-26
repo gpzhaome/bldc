@@ -72,12 +72,21 @@ static THD_FUNCTION(myudp_thread, arg);
 
 	static const SPIConfig spicfg = { NULL, TP_CS_PORT, TP_CS_PIN, SPI_BaudRatePrescaler_32 };
  */
+#define SPI_BaudRatePrescaler_2         ((uint16_t)0x0000) //  42 MHz      21 MHZ
+#define SPI_BaudRatePrescaler_4         ((uint16_t)0x0008) //  21 MHz      10.5 MHz
 static const SPIConfig spiudpcfg = {
   NULL,
   HW_SPI_PORT_NSS,
   HW_SPI_PIN_NSS,
-  SPI_CR1_BR_1
+  SPI_BaudRatePrescaler_2
+//  SPI_CR1_BR_1
 };
+//static const SPIConfig spiudpcfg = {
+//  NULL,
+//  HW_SPI_PORT_NSS,
+//  HW_SPI_PIN_NSS,
+//  SPI_CR1_BR_1
+//};
 
 
 ///*
@@ -1019,17 +1028,17 @@ static THD_FUNCTION(myudp_thread, arg) {
 
 
 
-
+		// TODO: check the frequency
 		// Run this loop at 1000Hz
-		chThdSleepMilliseconds(1);
+//		chThdSleepMilliseconds(1);
 
 //		systime_t sleep_time = CH_CFG_ST_FREQUENCY / app_get_configuration()->send_can_status_rate_hz;
 //		if (sleep_time == 0) {
 //			sleep_time = 1;
 //		}
-//		systime_t sleep_time = 3; // has to be greater than 1 to be sure it is not blocking other threads,
-//		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
-//		chThdSleep(sleep_time);
+		systime_t sleep_time = 1; // has to be greater than 1 to be sure it is not blocking other threads,
+		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
+		chThdSleep(sleep_time);
 
 		// Reset the timeout
 		timeout_reset();
