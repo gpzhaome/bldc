@@ -116,24 +116,26 @@ void          SPIWriteProcRamFifo();
 
 inline static void SPI_TransferTx (unsigned char Data)         // macro for the SPI transfer
 {
-	uint8_t rxbuf = 0;
-
-//	spiSend(&HW_SPI_DEV, 1, &Data);
-	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+//	uint8_t rxbuf = 0;
+//	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+	spiSend(&HW_SPI_DEV, 1, &Data);
 //    bcm2835_spi_transfer(Data);                                //
 };                                                             //
                                                                //
 inline static void SPI_TransferTxLast (unsigned char Data)     //
 {
-	uint8_t rxbuf = 0;
-	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+//	uint8_t rxbuf = 0;
+//	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+	spiSend(&HW_SPI_DEV, 1, &Data);
 //    bcm2835_spi_transfer(Data);                                //
 };                                                             //
                                                                //
 inline static unsigned char SPI_TransferRx (unsigned char Data)//
 {
 	uint8_t rxbuf = 0;
-	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+//	spiExchange(&HW_SPI_DEV, 1, &Data, &rxbuf);
+	spiReceive(&HW_SPI_DEV, 1, &rxbuf);
+
 	return rxbuf;
 //    return bcm2835_spi_transfer(Data);                         //
 };
@@ -824,6 +826,12 @@ static THD_FUNCTION(myudp_thread, arg) {
 	unsigned char ethercat_status = 0;
 	ethercat_status |= 0x80;
 
+	bool WatchDog = true;
+	bool Operational = false;
+	unsigned char i;
+	ULONG TempLong;
+	unsigned char Status;
+
 	for(;;) {
 
 //		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
@@ -855,11 +863,8 @@ static THD_FUNCTION(myudp_thread, arg) {
 
 		// ******************************************** easyCAT ********************************************************
 //		ethercat_status = EasyCAT_MainTask();
-		bool WatchDog = true;
-		bool Operational = false;
-		unsigned char i;
-		ULONG TempLong;
-		unsigned char Status;
+		WatchDog = true;
+		Operational = false;
 
 		TempLong.Long = SPIReadRegisterIndirect (WDOG_STATUS, 1); // read watchdog status
 		if ((TempLong.Byte[0] & 0x01) == 0x01)                    //
