@@ -56,6 +56,11 @@ static THD_WORKING_AREA(myudp_thread_wa, 2048); // 2kb stack for this thread
 static THD_FUNCTION(myudp_thread, arg);
 
 
+// system ticks
+uint32_t time_now = 0;
+uint32_t time_diff = 0;
+
+
 
 /*
  * Maximum speed SPI configuration (10.5MHz, CPHA=0, CPOL=0, MSb first).
@@ -74,6 +79,12 @@ static THD_FUNCTION(myudp_thread, arg);
  */
 #define SPI_BaudRatePrescaler_2         ((uint16_t)0x0000) //  42 MHz      21 MHZ
 #define SPI_BaudRatePrescaler_4         ((uint16_t)0x0008) //  21 MHz      10.5 MHz
+#define SPI_BaudRatePrescaler_8         ((uint16_t)0x0010) //  10.5 MHz    5.25 MHz
+#define SPI_BaudRatePrescaler_16        ((uint16_t)0x0018) //  5.25 MHz    2.626 MHz
+#define SPI_BaudRatePrescaler_32        ((uint16_t)0x0020) //  2.626 MHz   1.3125 MHz
+#define SPI_BaudRatePrescaler_64        ((uint16_t)0x0028) //  1.3125 MHz  656.25 KHz
+#define SPI_BaudRatePrescaler_128       ((uint16_t)0x0030) //  656.25 KHz  328.125 KHz
+#define SPI_BaudRatePrescaler_256       ((uint16_t)0x0038) //  328.125 KHz 164.06 KHz
 static const SPIConfig spiudpcfg = {
   NULL,
   HW_SPI_PORT_NSS,
@@ -371,10 +382,11 @@ unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
 	SPI_TransferTx(Addr.Byte[1]);                             // address of the register
 	SPI_TransferTxLast(Addr.Byte[0]);                         // to read, MsByte first
 
-	for (i=0; i<Len; i++)                                     // read the requested number of bytes
-	{                                                         // LsByte first
-		Result.Byte[i] = SPI_TransferRx(DUMMY_BYTE);            //
-	}                                                         //
+	spiReceive(&HW_SPI_DEV, Len, (Result.Byte));
+//	for (i=0; i<Len; i++)                                     // read the requested number of bytes
+//	{                                                         // LsByte first
+//		Result.Byte[i] = SPI_TransferRx(DUMMY_BYTE);            //
+//	}                                                         //
 
 	spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
 	//  SCS_High_macro                                            // SPI chip select disable
@@ -400,10 +412,11 @@ void SPIWriteRegisterDirect (unsigned short Address, unsigned long DataOut)
   SPI_TransferTx(Addr.Byte[1]);                             // address of the register
   SPI_TransferTx(Addr.Byte[0]);                             // to write MsByte first
 
-  SPI_TransferTx(Data.Byte[0]);                             // data to write
-  SPI_TransferTx(Data.Byte[1]);                             // LsByte first
-  SPI_TransferTx(Data.Byte[2]);                             //
-  SPI_TransferTxLast(Data.Byte[3]);                         //
+  spiSend(&HW_SPI_DEV, 4, (Data.Byte));
+//  SPI_TransferTx(Data.Byte[0]);                             // data to write
+//  SPI_TransferTx(Data.Byte[1]);                             // LsByte first
+//  SPI_TransferTx(Data.Byte[2]);                             //
+//  SPI_TransferTxLast(Data.Byte[3]);                         //
 
   spiUnselect(&HW_SPI_DEV);                /* Slave Select de-assertion.       */
 //  SCS_High_macro                                            // SPI chip select enable
@@ -429,7 +442,6 @@ unsigned long SPIReadRegisterIndirect (unsigned short Address, unsigned char Len
   TempLong.Byte[3] = ESC_READ;                              // ESC read
 
   SPIWriteRegisterDirect (ECAT_CSR_CMD, TempLong.Long);     // write the command
-
   do
   {                                                         // wait for command execution
     TempLong.Long = SPIReadRegisterDirect(ECAT_CSR_CMD,4);  //
@@ -462,7 +474,6 @@ void  SPIWriteRegisterIndirect (unsigned long DataOut, unsigned short Address, u
   TempLong.Byte[3] = ESC_WRITE;                               // ESC write
 
   SPIWriteRegisterDirect (ECAT_CSR_CMD, TempLong.Long);       // write the command
-
   do                                                          // wait for command execution
   {                                                           //
     TempLong.Long = SPIReadRegisterDirect (ECAT_CSR_CMD, 4);  //
@@ -509,10 +520,11 @@ void SPIReadProcRamFifo()    // read BYTE_NUM bytes from the output process ram,
     SPI_TransferTx(0x00);                                         // address of the read
     SPI_TransferTxLast(0x00);                                     // fifo MsByte first
 
-    for (i=0; i< FST_BYTE_NUM_ROUND_OUT; i++)                     // transfer the data
-    {                                                             //
-      BufferOut.Byte[i] = SPI_TransferRx(DUMMY_BYTE);             //
-    }                                                             //
+    spiReceive(&HW_SPI_DEV, FST_BYTE_NUM_ROUND_OUT, (BufferOut.Byte));
+//    for (i=0; i< FST_BYTE_NUM_ROUND_OUT; i++)                     // transfer the data
+//    {                                                             //
+//      BufferOut.Byte[i] = SPI_TransferRx(DUMMY_BYTE);             //
+//    }                                                             //
 
     spiUnselect(&HW_SPI_DEV);
 //    SCS_High_macro                                                // disable SPI chip select
@@ -537,10 +549,16 @@ void SPIReadProcRamFifo()    // read BYTE_NUM bytes from the output process ram,
     SPI_TransferTx(0x00);                                       // address of the read
     SPI_TransferTxLast(0x00);                                   // fifo MsByte first
 
-    for (i=0; i< (SEC_BYTE_NUM_ROUND_OUT); i++)                 // transfer loop for the remaining
-    {                                                           // bytes
-      BufferOut.Byte[i+64] = SPI_TransferRx(DUMMY_BYTE);        // we transfer the second part of
-    }                                                           // the buffer, so offset by 64
+    uint8_t pBuf[SEC_BYTE_NUM_ROUND_OUT];
+    spiReceive(&HW_SPI_DEV, SEC_BYTE_NUM_ROUND_OUT, pBuf);
+    for (i=0; i< (SEC_BYTE_NUM_ROUND_OUT); i++)
+    {
+    	BufferOut.Byte[i+64] = pBuf[i];
+    }
+//    for (i=0; i< (SEC_BYTE_NUM_ROUND_OUT); i++)                 // transfer loop for the remaining
+//    {                                                           // bytes
+//      BufferOut.Byte[i+64] = SPI_TransferRx(DUMMY_BYTE);        // we transfer the second part of
+//    }                                                           // the buffer, so offset by 64
 
     spiUnselect(&HW_SPI_DEV);
 //    SCS_High_macro                                              // SPI chip select disable
@@ -588,12 +606,14 @@ void SPIWriteProcRamFifo()    // write BYTE_NUM bytes to the input process ram, 
     SPI_TransferTx(0x00);                                         // address of the write fifo
     SPI_TransferTx(0x20);                                         // MsByte first
 
-    for (i=0; i< (FST_BYTE_NUM_ROUND_IN - 1 ); i++)               // transfer the data
-    {                                                             //
-      SPI_TransferTx (BufferIn.Byte[i]);                          //
-    }                                                             //
+    spiSend(&HW_SPI_DEV, FST_BYTE_NUM_ROUND_IN-1, (BufferIn.Byte));
+    SPI_TransferTxLast (BufferIn.Byte[FST_BYTE_NUM_ROUND_IN-1]);
+//    for (i=0; i< (FST_BYTE_NUM_ROUND_IN - 1 ); i++)               // transfer the data
+//    {                                                             //
+//      SPI_TransferTx (BufferIn.Byte[i]);                          //
+//    }                                                             //
                                                                   //
-    SPI_TransferTxLast (BufferIn.Byte[i]);                        // one last byte
+//    SPI_TransferTxLast (BufferIn.Byte[i]);                        // one last byte
 
     spiUnselect(&HW_SPI_DEV);
 //    SCS_High_macro                                                // disable SPI chip select
@@ -617,12 +637,19 @@ void SPIWriteProcRamFifo()    // write BYTE_NUM bytes to the input process ram, 
     SPI_TransferTx(0x00);                                       // address of the write fifo
     SPI_TransferTx(0x20);                                       // MsByte first
 
-    for (i=0; i< (SEC_BYTE_NUM_ROUND_IN - 1); i++)              // transfer loop for the remaining
-    {                                                           // bytes
-      SPI_TransferTx (BufferIn.Byte[i+64]);                     // we transfer the second part of
-    }                                                           // the buffer, so offset by 64
+    uint8_t pBuf[SEC_BYTE_NUM_ROUND_IN];
+    for (i=0; i< (SEC_BYTE_NUM_ROUND_IN - 1); i++)
+    {
+    	pBuf[i] = BufferIn.Byte[i+64];
+    }
+    spiSend(&HW_SPI_DEV, SEC_BYTE_NUM_ROUND_IN-1, pBuf);
+    SPI_TransferTxLast (pBuf[SEC_BYTE_NUM_ROUND_IN-1]);
+//    for (i=0; i< (SEC_BYTE_NUM_ROUND_IN - 1); i++)              // transfer loop for the remaining
+//    {                                                           // bytes
+//      SPI_TransferTx (BufferIn.Byte[i+64]);                     // we transfer the second part of
+//    }                                                           // the buffer, so offset by 64
                                                                 //
-    SPI_TransferTxLast (BufferIn.Byte[i+64]);                   // one last byte
+//    SPI_TransferTxLast (BufferIn.Byte[i+64]);                   // one last byte
 
     spiUnselect(&HW_SPI_DEV);
 //    SCS_High_macro                                              // disable SPI chip select
@@ -832,7 +859,13 @@ static THD_FUNCTION(myudp_thread, arg) {
 	ULONG TempLong;
 	unsigned char Status;
 
+	systime_t time_sys;
+	time_sys = chVTGetSystemTimeX();
+
 	for(;;) {
+		time_sys += US2ST(1000);                 // Next deadline
+
+//		time_now = ST2US(chVTGetSystemTime());
 
 //		motCur = mc_interface_get_tot_current_directional(); // sign denotes the direction in which the motor generates torque
 		motCur = mc_interface_get_tot_current_directional_filtered();
@@ -859,6 +892,7 @@ static THD_FUNCTION(myudp_thread, arg) {
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+17] = *chptr++; }
 
 		BufferIn.Byte[21] = encIndexFound;
+
 
 
 		// ******************************************** easyCAT ********************************************************
@@ -955,6 +989,8 @@ static THD_FUNCTION(myudp_thread, arg) {
 		}                                                         //
 
 
+//		commands_printf("time of execution: %" PRId32 " . \n", time_diff);
+
 //		// ******************************************** UDP ************************************************************
 //		if((size = getSn_RX_RSR(SOCK_UDPS)) > 0)
 //		{
@@ -1031,22 +1067,34 @@ static THD_FUNCTION(myudp_thread, arg) {
 
 
 
+		//		// Reset the timeout
+		timeout_reset();
+
+
+
+
 
 
 		// TODO: check the frequency
 		// Run this loop at 1000Hz
-//		chThdSleepMilliseconds(1);
+//		chThdSleepMilliseconds(1000);
 
 //		systime_t sleep_time = CH_CFG_ST_FREQUENCY / app_get_configuration()->send_can_status_rate_hz;
 //		if (sleep_time == 0) {
 //			sleep_time = 1;
 //		}
-		systime_t sleep_time = 1; // has to be greater than 1 to be sure it is not blocking other threads,
-		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
-		chThdSleep(sleep_time);
+//		systime_t sleep_time = 1; // has to be greater than 1 to be sure it is not blocking other threads,
+//		// the system runs at CH_CFG_ST_FREQUENCY (10kHz)
+//		chThdSleep(sleep_time);
 
-		// Reset the timeout
-		timeout_reset();
+		chThdSleepUntil(time_sys);
+
+
+
+//		//		// system time
+//		time_diff = ST2US(chVTGetSystemTime()) - time_now;
+//
+//		commands_printf("time of execution: %lu\n", (unsigned long)time_diff);
 	}
 }
 
