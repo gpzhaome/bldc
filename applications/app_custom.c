@@ -378,9 +378,15 @@ unsigned long SPIReadRegisterDirect (unsigned short Address, unsigned char Len)
 	spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 	//  SCS_Low_macro                                             // SPI chip select enable
 
-	SPI_TransferTx(COMM_SPI_READ);                            // SPI read command
-	SPI_TransferTx(Addr.Byte[1]);                             // address of the register
-	SPI_TransferTxLast(Addr.Byte[0]);                         // to read, MsByte first
+	ULONG TempLong;
+	TempLong.Byte[0] = COMM_SPI_READ;
+	TempLong.Byte[1] = Addr.Byte[1];
+	TempLong.Byte[2] = Addr.Byte[0];
+	TempLong.Byte[3] = 0;
+	spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//	SPI_TransferTx(COMM_SPI_READ);                            // SPI read command
+//	SPI_TransferTx(Addr.Byte[1]);                             // address of the register
+//	SPI_TransferTxLast(Addr.Byte[0]);                         // to read, MsByte first
 
 	spiReceive(&HW_SPI_DEV, Len, (Result.Byte));
 //	for (i=0; i<Len; i++)                                     // read the requested number of bytes
@@ -408,9 +414,15 @@ void SPIWriteRegisterDirect (unsigned short Address, unsigned long DataOut)
   spiSelect(&HW_SPI_DEV);                  /* Slave Select assertion.          */
 //  SCS_Low_macro                                             // SPI chip select enable
 
-  SPI_TransferTx(COMM_SPI_WRITE);                           // SPI write command
-  SPI_TransferTx(Addr.Byte[1]);                             // address of the register
-  SPI_TransferTx(Addr.Byte[0]);                             // to write MsByte first
+  ULONG TempLong;
+  TempLong.Byte[0] = COMM_SPI_WRITE;
+  TempLong.Byte[1] = Addr.Byte[1];
+  TempLong.Byte[2] = Addr.Byte[0];
+  TempLong.Byte[3] = 0;
+  spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//  SPI_TransferTx(COMM_SPI_WRITE);                           // SPI write command
+//  SPI_TransferTx(Addr.Byte[1]);                             // address of the register
+//  SPI_TransferTx(Addr.Byte[0]);                             // to write MsByte first
 
   spiSend(&HW_SPI_DEV, 4, (Data.Byte));
 //  SPI_TransferTx(Data.Byte[0]);                             // data to write
@@ -516,9 +528,14 @@ void SPIReadProcRamFifo()    // read BYTE_NUM bytes from the output process ram,
     spiSelect(&HW_SPI_DEV);
 //    SCS_Low_macro                                                 // enable SPI chip select
 
-    SPI_TransferTx(COMM_SPI_READ);                                // SPI read command
-    SPI_TransferTx(0x00);                                         // address of the read
-    SPI_TransferTxLast(0x00);                                     // fifo MsByte first
+    TempLong.Byte[0] = COMM_SPI_READ;
+    TempLong.Byte[1] = 0x00;
+    TempLong.Byte[2] = 0x00;
+    TempLong.Byte[3] = 0;
+    spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//    SPI_TransferTx(COMM_SPI_READ);                                // SPI read command
+//    SPI_TransferTx(0x00);                                         // address of the read
+//    SPI_TransferTxLast(0x00);                                     // fifo MsByte first
 
     spiReceive(&HW_SPI_DEV, FST_BYTE_NUM_ROUND_OUT, (BufferOut.Byte));
 //    for (i=0; i< FST_BYTE_NUM_ROUND_OUT; i++)                     // transfer the data
@@ -545,9 +562,14 @@ void SPIReadProcRamFifo()    // read BYTE_NUM bytes from the output process ram,
     spiSelect(&HW_SPI_DEV);
 //    SCS_Low_macro                                               // enable SPI chip select
 
-    SPI_TransferTx(COMM_SPI_READ);                              // SPI read command
-    SPI_TransferTx(0x00);                                       // address of the read
-    SPI_TransferTxLast(0x00);                                   // fifo MsByte first
+    TempLong.Byte[0] = COMM_SPI_READ;
+    TempLong.Byte[1] = 0x00;
+    TempLong.Byte[2] = 0x00;
+    TempLong.Byte[3] = 0;
+    spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//    SPI_TransferTx(COMM_SPI_READ);                              // SPI read command
+//    SPI_TransferTx(0x00);                                       // address of the read
+//    SPI_TransferTxLast(0x00);                                   // fifo MsByte first
 
     uint8_t pBuf[SEC_BYTE_NUM_ROUND_OUT];
     spiReceive(&HW_SPI_DEV, SEC_BYTE_NUM_ROUND_OUT, pBuf);
@@ -602,9 +624,14 @@ void SPIWriteProcRamFifo()    // write BYTE_NUM bytes to the input process ram, 
     spiSelect(&HW_SPI_DEV);
 //    SCS_Low_macro                                                 // enable SPI chip select
 
-    SPI_TransferTx(COMM_SPI_WRITE);                               // SPI write command
-    SPI_TransferTx(0x00);                                         // address of the write fifo
-    SPI_TransferTx(0x20);                                         // MsByte first
+    TempLong.Byte[0] = COMM_SPI_WRITE;
+    TempLong.Byte[1] = 0x00;
+    TempLong.Byte[2] = 0x20;
+    TempLong.Byte[3] = 0;
+    spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//    SPI_TransferTx(COMM_SPI_WRITE);                               // SPI write command
+//    SPI_TransferTx(0x00);                                         // address of the write fifo
+//    SPI_TransferTx(0x20);                                         // MsByte first
 
     spiSend(&HW_SPI_DEV, FST_BYTE_NUM_ROUND_IN-1, (BufferIn.Byte));
     SPI_TransferTxLast (BufferIn.Byte[FST_BYTE_NUM_ROUND_IN-1]);
@@ -633,9 +660,14 @@ void SPIWriteProcRamFifo()    // write BYTE_NUM bytes to the input process ram, 
     spiSelect(&HW_SPI_DEV);
 //    SCS_Low_macro                                               // enable SPI chip select
 
-    SPI_TransferTx(COMM_SPI_WRITE);                             // SPI write command
-    SPI_TransferTx(0x00);                                       // address of the write fifo
-    SPI_TransferTx(0x20);                                       // MsByte first
+    TempLong.Byte[0] = COMM_SPI_WRITE;
+    TempLong.Byte[1] = 0x00;
+    TempLong.Byte[2] = 0x20;
+    TempLong.Byte[3] = 0;
+    spiSend(&HW_SPI_DEV, 3, (TempLong.Byte));
+//    SPI_TransferTx(COMM_SPI_WRITE);                             // SPI write command
+//    SPI_TransferTx(0x00);                                       // address of the write fifo
+//    SPI_TransferTx(0x20);                                       // MsByte first
 
     uint8_t pBuf[SEC_BYTE_NUM_ROUND_IN];
     for (i=0; i< (SEC_BYTE_NUM_ROUND_IN - 1); i++)
@@ -1064,6 +1096,12 @@ static THD_FUNCTION(myudp_thread, arg) {
 //				ret = sendto(SOCK_UDPS, spiTxBuf, spiBufSiz, remoteip, remoteport);  // send  data
 //			}
 //		}
+
+
+
+//		// system time
+//		time_diff = ST2US(chVTGetSystemTime()) - time_now;
+//		commands_printf("time of execution: %lu\n", (unsigned long)time_diff);
 
 
 
