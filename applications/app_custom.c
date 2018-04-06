@@ -894,6 +894,31 @@ static THD_FUNCTION(myudp_thread, arg) {
 	systime_t time_sys;
 	time_sys = chVTGetSystemTimeX();
 
+
+	// interrupt
+	/*
+	 * configure the servo pin (PB5) to input pin, (might need to modify the hardware), modify the file hw_*.h
+	 * connect the exti line to pin
+	 * configure exti line
+	 * enable and set the exti line priority
+	 * add interrupt function, include the function in irq_handlers.c file
+	 * isr_vector_table.h, define somthing similar to EXTI15_10_IRQHandler
+	 */
+//	 Interrupt on index pulse
+//
+//	// Connect EXTI Line to pin
+//	SYSCFG_EXTILineConfig(HW_ENC_EXTI_PORTSRC, HW_ENC_EXTI_PINSRC);
+//
+//	// Configure EXTI Line
+//	EXTI_InitStructure.EXTI_Line = HW_ENC_EXTI_LINE;
+//	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+//	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+//	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+//	EXTI_Init(&EXTI_InitStructure);
+//
+//	// Enable and set EXTI Line Interrupt to the highest priority
+//	nvicEnableVector(HW_ENC_EXTI_CH, 0);
+
 	for(;;) {
 		time_sys += US2ST(500);                 // Next deadline
 
