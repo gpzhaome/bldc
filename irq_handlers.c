@@ -26,6 +26,8 @@
 #include "hw.h"
 #include "encoder.h"
 
+#include "applications/app.h"
+
 CH_IRQ_HANDLER(ADC1_2_3_IRQHandler) {
 	CH_IRQ_PROLOGUE();
 	ADC_ClearITPendingBit(ADC1, ADC_IT_JEOC);
@@ -57,5 +59,15 @@ CH_IRQ_HANDLER(TIM8_CC_IRQHandler) {
 
 		// Clear the IT pending bit
 		TIM_ClearITPendingBit(TIM8, TIM_IT_CC1);
+	}
+}
+
+// interrupt service for etherCAT (servo pin)
+CH_IRQ_HANDLER(HW_ICU_EXTI_ISR_VEC) {
+	if (EXTI_GetITStatus(HW_ICU_EXTI_LINE) != RESET) {
+		EasyCAT_MainTask();
+
+		// Clear the EXTI line pending bit
+		EXTI_ClearITPendingBit(HW_ICU_EXTI_LINE);
 	}
 }

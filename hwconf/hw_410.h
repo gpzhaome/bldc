@@ -127,6 +127,16 @@
 #define HW_ICU_GPIO				GPIOB
 #define HW_ICU_PIN				5
 
+// servo pin as external interrupt
+#define HW_ICU_EXTI_GPIO		GPIOB
+#define HW_ICU_EXTI_PIN			5
+#define HW_ICU_EXTI_PORTSRC		EXTI_PortSourceGPIOB
+#define HW_ICU_EXTI_PINSRC		EXTI_PinSource5
+#define HW_ICU_EXTI_CH			EXTI9_5_IRQn
+#define HW_ICU_EXTI_LINE		EXTI_Line5
+#define HW_ICU_EXTI_ISR_VEC		EXTI9_5_IRQHandler
+
+
 // I2C Peripheral
 #define HW_I2C_DEV				I2CD2
 #define HW_I2C_GPIO_AF			GPIO_AF_I2C2

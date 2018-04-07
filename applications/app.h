@@ -54,5 +54,14 @@ void app_nunchuk_update_output(chuck_data *data);
 void app_custom_start(void);
 void app_custom_stop(void);
 void app_custom_configure(app_configuration *conf);
+void          SPIWriteRegisterDirect   (unsigned short Address, unsigned long DataOut);
+unsigned long SPIReadRegisterDirect    (unsigned short Address, unsigned char Len);
+
+void          SPIWriteRegisterIndirect (unsigned long  DataOut, unsigned short Address, unsigned char Len);
+unsigned long SPIReadRegisterIndirect  (unsigned short Address, unsigned char Len);
+
+void          SPIReadProcRamFifo();
+void          SPIWriteProcRamFifo();
+void EasyCAT_MainTask();
 
 #endif /* APP_H_ */

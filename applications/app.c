@@ -99,6 +99,7 @@ void app_set_configuration(app_configuration *conf) {
 //#ifdef APP_CUSTOM_TO_USE
 		hw_stop_i2c();
 		app_uartcomm_stop();
+		app_ppm_stop();
 		app_custom_start();
 //#endif
 		break;
