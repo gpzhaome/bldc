@@ -26,7 +26,7 @@
 #include "hw.h"
 #include "encoder.h"
 
-#include "applications/app.h"
+#include "applications/EasyCAT.h"
 
 CH_IRQ_HANDLER(ADC1_2_3_IRQHandler) {
 	CH_IRQ_PROLOGUE();

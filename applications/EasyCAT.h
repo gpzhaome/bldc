@@ -385,6 +385,17 @@ typedef enum
 }SyncMode;
 
 
+inline static void SPI_TransferTxLast (unsigned char Data);
+void          SPIWriteRegisterDirect   (unsigned short Address, unsigned long DataOut);
+unsigned long SPIReadRegisterDirect    (unsigned short Address, unsigned char Len);
+
+void          SPIWriteRegisterIndirect (unsigned long  DataOut, unsigned short Address, unsigned char Len);
+unsigned long SPIReadRegisterIndirect  (unsigned short Address, unsigned char Len);
+
+void          SPIReadProcRamFifo();
+void          SPIWriteProcRamFifo();
+void EasyCAT_MainTask();
+
 
 ////-------------------------------------------------------------------------------------------------
 //
