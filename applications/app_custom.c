@@ -873,6 +873,8 @@ static THD_FUNCTION(myudp_thread, arg) {
 	uint8_t tmpData[4];
 
 
+	uint32_t packMissed = 0;
+
 //	int32_t  ret;
 //	uint16_t size, sentsize;
 //	uint8_t  destip[4];
@@ -910,17 +912,17 @@ static THD_FUNCTION(myudp_thread, arg) {
 
 		encIndexFound = encoder_index_found();
 
-		chptr = (unsigned char *) &motCur;
+		chptr = &motCur;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i] = *chptr++; }
-		chptr = (unsigned char *) &motAng;
+		chptr = &motAng;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+4] = *chptr++; }
-		chptr = (unsigned char *) &motRpm;
+		chptr = &motRpm;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+8] = *chptr++; }
 		BufferIn.Byte[12] = motSta*10 + motFal;
 
-		chptr = (unsigned char *) &batVol;
+		chptr = &batVol;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+13] = *chptr++; }
-		chptr = (unsigned char *) &batCur;
+		chptr = &batCur;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+17] = *chptr++; }
 
 		BufferIn.Byte[21] = encIndexFound;
@@ -950,6 +952,8 @@ static THD_FUNCTION(myudp_thread, arg) {
 		{                                                         // not in operational state, reset
 			for (i=0; i < TOT_BYTE_NUM_OUT ; i++)                   // the output buffer
 				BufferOut.Byte[i] = 0;                                  //
+
+//			packMissed += 1;
 		}
 		else
 		{
@@ -968,8 +972,12 @@ static THD_FUNCTION(myudp_thread, arg) {
 		for (int i=0; i<4; i++) { tmpData[i] = BufferOut.Byte[i+13]; }
 		motKD = *((float*)(&tmpData));
 
-		chptr = (unsigned char *) &motDes;
+		chptr = &motDes;
 		for(int i=0; i<4; i++) { BufferIn.Byte[i+22] = *chptr++; }
+
+
+//		chptr = &packMissed;
+//		for(int i=0; i<4; i++) { BufferIn.Byte[i+26] = *chptr++; }
 
 		if (WatchDog | !Operational)	// not in the operational mode, release the motor
 		{
@@ -1012,13 +1020,15 @@ static THD_FUNCTION(myudp_thread, arg) {
 			}
 		}
 
+
+
 		SPIWriteProcRamFifo();                                    // we always transfer process data from
 		// the input buffer to the EtherCAT core
 
-		if (WatchDog)                                             // return the status of the State Machine
-		{                                                         // and of the watchdog
-			Status |= 0x80;                                         //
-		}                                                         //
+//		if (WatchDog)                                             // return the status of the State Machine
+//		{                                                         // and of the watchdog
+//			Status |= 0x80;                                         //
+//		}                                                         //
 
 
 //		commands_printf("time of execution: %" PRId32 " . \n", time_diff);
