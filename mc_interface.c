@@ -1,5 +1,5 @@
 /*
-	Copyright 2016 - 2017 Benjamin Vedder	benjamin@vedder.se
+	Copyright 2016 - 2018 Benjamin Vedder	benjamin@vedder.se
 
 	This file is part of the VESC firmware.
 
@@ -30,6 +30,7 @@
 #include "commands.h"
 #include "encoder.h"
 #include "drv8301.h"
+#include "drv8320.h"
 #include "buffer.h"
 #include <math.h>
 
@@ -134,6 +135,9 @@ void mc_interface_init(mc_configuration *configuration) {
 #ifdef HW_HAS_DRV8301
 	drv8301_set_oc_mode(configuration->m_drv8301_oc_mode);
 	drv8301_set_oc_adj(configuration->m_drv8301_oc_adj);
+#elif defined(HW_HAS_DRV8320)
+	drv8320_set_oc_mode(configuration->m_drv8301_oc_mode);
+	drv8320_set_oc_adj(configuration->m_drv8301_oc_adj);
 #endif
 
 	// Initialize encoder
@@ -198,6 +202,9 @@ void mc_interface_set_configuration(mc_configuration *configuration) {
 #ifdef HW_HAS_DRV8301
 	drv8301_set_oc_mode(configuration->m_drv8301_oc_mode);
 	drv8301_set_oc_adj(configuration->m_drv8301_oc_adj);
+#elif defined(HW_HAS_DRV8320)
+	drv8320_set_oc_mode(configuration->m_drv8301_oc_mode);
+	drv8320_set_oc_adj(configuration->m_drv8301_oc_adj);
 #endif
 
 	if (m_conf.motor_type == MOTOR_TYPE_FOC
@@ -1043,6 +1050,10 @@ void mc_interface_fault_stop(mc_fault_code fault) {
 		if (fault == FAULT_CODE_DRV) {
 			fdata.drv8301_faults = drv8301_read_faults();
 		}
+#elif defined(HW_HAS_DRV8320)
+		if (fault == FAULT_CODE_DRV) {
+			fdata.drv8301_faults = drv8320_read_faults();
+		}
 #endif
 		terminal_add_fault_data(&fdata);
 	}
@@ -1328,11 +1339,10 @@ static void update_override_limits(volatile mc_configuration *conf) {
 	UTILS_LP_FAST(m_temp_motor, NTC_TEMP_MOTOR(conf->m_ntc_motor_beta), 0.1);
 
 	// Temperature MOSFET
-	float lo_max_mos = 0.0;
-	float lo_min_mos = 0.0;
+	float lo_min_mos = conf->l_current_min;
+	float lo_max_mos = conf->l_current_max;
 	if (m_temp_fet < conf->l_temp_fet_start) {
-		lo_min_mos = conf->l_current_min;
-		lo_max_mos = conf->l_current_max;
+		// Keep values
 	} else if (m_temp_fet > conf->l_temp_fet_end) {
 		lo_min_mos = 0.0;
 		lo_max_mos = 0.0;
@@ -1345,21 +1355,20 @@ static void update_override_limits(volatile mc_configuration *conf) {
 
 		maxc = utils_map(m_temp_fet, conf->l_temp_fet_start, conf->l_temp_fet_end, maxc, 0.0);
 
-		if (fabsf(conf->l_current_max) > maxc) {
-			lo_max_mos = SIGN(conf->l_current_max) * maxc;
-		}
-
 		if (fabsf(conf->l_current_min) > maxc) {
 			lo_min_mos = SIGN(conf->l_current_min) * maxc;
+		}
+
+		if (fabsf(conf->l_current_max) > maxc) {
+			lo_max_mos = SIGN(conf->l_current_max) * maxc;
 		}
 	}
 
 	// Temperature MOTOR
-	float lo_max_mot = 0.0;
-	float lo_min_mot = 0.0;
+	float lo_min_mot = conf->l_current_min;
+	float lo_max_mot = conf->l_current_max;
 	if (m_temp_motor < conf->l_temp_motor_start) {
-		lo_min_mot = conf->l_current_min;
-		lo_max_mot = conf->l_current_max;
+		// Keep values
 	} else if (m_temp_motor > conf->l_temp_motor_end) {
 		lo_min_mot = 0.0;
 		lo_max_mot = 0.0;
@@ -1372,12 +1381,12 @@ static void update_override_limits(volatile mc_configuration *conf) {
 
 		maxc = utils_map(m_temp_motor, conf->l_temp_motor_start, conf->l_temp_motor_end, maxc, 0.0);
 
-		if (fabsf(conf->l_current_max) > maxc) {
-			lo_max_mot = SIGN(conf->l_current_max) * maxc;
-		}
-
 		if (fabsf(conf->l_current_min) > maxc) {
 			lo_min_mot = SIGN(conf->l_current_min) * maxc;
+		}
+
+		if (fabsf(conf->l_current_max) > maxc) {
+			lo_max_mot = SIGN(conf->l_current_max) * maxc;
 		}
 	}
 
