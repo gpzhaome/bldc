@@ -181,6 +181,7 @@ void commands_process_packet(unsigned char *data, unsigned int len) {
 		buffer_append_int32(send_buffer, mc_interface_get_tachometer_abs_value(false), &ind);
 		send_buffer[ind++] = mc_interface_get_fault();
 		buffer_append_float32(send_buffer, mc_interface_get_pid_pos_now(), 1e6, &ind);
+		send_buffer[ind++] = app_get_configuration()->controller_id;
 		commands_send_packet(send_buffer, ind);
 		break;
 
@@ -359,6 +360,7 @@ void commands_process_packet(unsigned char *data, unsigned int len) {
 		mcconf.m_bldc_f_sw_max = buffer_get_float32_auto(data, &ind);
 		mcconf.m_dc_f_sw = buffer_get_float32_auto(data, &ind);
 		mcconf.m_ntc_motor_beta = buffer_get_float32_auto(data, &ind);
+		mcconf.m_out_aux_mode = data[ind++];
 
 		// Apply limits if they are defined
 #ifndef DISABLE_HW_LIMITS
@@ -517,6 +519,7 @@ void commands_process_packet(unsigned char *data, unsigned int len) {
 		buffer_append_float32_auto(send_buffer, mcconf.m_bldc_f_sw_max, &ind);
 		buffer_append_float32_auto(send_buffer, mcconf.m_dc_f_sw, &ind);
 		buffer_append_float32_auto(send_buffer, mcconf.m_ntc_motor_beta, &ind);
+		send_buffer[ind++] = mcconf.m_out_aux_mode;
 
 		commands_send_packet(send_buffer, ind);
 		break;
